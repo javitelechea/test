@@ -936,16 +936,25 @@ const UI = (() => {
         const btnImportXml = $('#btn-import-xml');
         const btnExportXml = $('#btn-export-xml');
 
+        // Hide playlist creation rows
+        const plCreateRows = $$('.playlist-create-row');
+
         if (isReadOnly) {
             if (btnSave) btnSave.style.display = 'none';
             if (btnShare) btnShare.style.display = 'none';
             if (btnImportXml) btnImportXml.style.display = 'none';
             if (btnExportXml) btnExportXml.style.display = 'none';
+            plCreateRows.forEach(el => el.style.display = 'none');
+
+            // Re-hide share edit button in modal if somehow opened (though main share should be hidden)
+            const shareEditBtn = $('#btn-share-edit');
+            if (shareEditBtn) shareEditBtn.style.display = 'none';
         } else {
             if (btnSave) btnSave.style.display = 'inline-flex';
             if (btnShare && AppState.get('currentProjectId')) btnShare.style.display = 'inline-flex';
             if (btnImportXml) btnImportXml.style.display = 'inline-flex';
             if (btnExportXml) btnExportXml.style.display = 'inline-flex';
+            plCreateRows.forEach(el => el.style.display = 'flex');
         }
 
         // Refresh appropriate list

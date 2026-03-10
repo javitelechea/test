@@ -352,6 +352,13 @@
 
     // ═══ PROJECTS LIST ═══
     $('#btn-my-projects').addEventListener('click', async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReadOnly = urlParams.get('mode') === 'view';
+        if (isReadOnly) {
+            UI.toast('El explorador de proyectos no está disponible en modo lectura', 'info');
+            return;
+        }
+
         UI.showModal('modal-projects');
         const listOwned = $('#project-list');
         const listShared = $('#shared-project-list');
