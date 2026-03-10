@@ -478,6 +478,10 @@ const UI = (() => {
 
             const flagBtnHtml = buildFlagButton(clip.id, flags);
 
+            // Define the static icons so we don't throw ReferenceErrors
+            const flagIcon = flags.length > 0 ? `<span title="${flags.map(f => FLAG_LABELS[f]).join(', ')}">🚩</span>` : '';
+            const chatIcon = hasChat ? '💬' : '';
+
             el.innerHTML = `
                 <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
                 <div class="clip-item-name-group" style="display:flex; flex-direction:column; min-width:0;">
