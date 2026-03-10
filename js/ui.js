@@ -281,19 +281,40 @@ const UI = (() => {
             };
             setTimeout(() => document.addEventListener('click', closeChat), 10);
 
-            const sendMessage = () => {
+            const sendMessage = async () => {
                 const name = nameInput.value.trim();
                 const text = textInput.value.trim();
                 if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
                 if (!text) return;
+
+                // Block double-send
+                if (sendBtn.disabled) return;
+                sendBtn.disabled = true;
+
                 localStorage.setItem('sr_chat_name', name);
-                AppState.addComment(playlistId, clipId, name, text);
-                document.removeEventListener('click', closeChat);
+
+                // Immediate feedback
+                textInput.value = '';
+                const messagesCont = panel.querySelector('.chat-messages');
+                if (messagesCont) {
+                    const tempMsg = document.createElement('div');
+                    tempMsg.className = 'chat-message';
+                    tempMsg.innerHTML = `<span class="chat-name">${name}:</span>${text}<span class="chat-time">ahora</span>`;
+                    messagesCont.appendChild(tempMsg);
+                    messagesCont.scrollTop = messagesCont.scrollHeight;
+                }
+
+                await AppState.addComment(playlistId, clipId, name, text);
+
+                sendBtn.disabled = false;
                 if (rerenderFn) rerenderFn();
             };
             sendBtn.addEventListener('click', sendMessage);
             textInput.addEventListener('keydown', (ev) => {
-                if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    sendMessage();
+                }
             });
         }
     }
@@ -463,6 +484,7 @@ const UI = (() => {
 
             const el = document.createElement('div');
             el.className = 'view-clip-item' + (clip.id === currentClipId ? ' active' : '');
+            if (hasChat) el.classList.add('has-chat-activity');
             el.dataset.clipId = clip.id;
 
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
@@ -497,10 +519,13 @@ const UI = (() => {
                     ${playlistBtnHtml}
                     ${exportBtnHtml}
                 </div>
-                <!-- Static icons (hidden on hover/active via CSS) -->
-                <div class="clip-flags-display" style="display:flex; justify-content:flex-end;">
-                  <div class="clip-item-icons">${flagIcon}</div>
-                  <div class="clip-item-icons">${chatIcon}</div>
+                <!-- Static icons -->
+                <div class="clip-flags-display">
+                  <div class="clip-item-icons">
+                    ${flagIcon}
+                    <span class="static-chat-icon${hasChat ? ' has-content' : ''}">💬</span>
+                    <span class="static-playlist-icon">📋</span>
+                  </div>
                 </div>
             `;
 
@@ -1055,6 +1080,8 @@ const UI = (() => {
             panelAnalyze.classList.remove('hidden');
             panelView.classList.add('hidden');
             tagBar.classList.remove('hidden');
+            const actionBar = $('#view-action-bar');
+            if (actionBar) actionBar.classList.add('hidden');
         } else { // mode === 'view'
             panelAnalyze.classList.add('hidden');
             panelView.classList.remove('hidden');

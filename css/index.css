@@ -888,25 +888,37 @@ select {
 /* CLIP ITEM GRID (Homogeneous) */
 .view-clip-item {
   display: grid;
-  grid-template-columns: 32px 1fr auto auto;
+  grid-template-columns: 32px 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  margin-bottom: 4px;
+  border-radius: var(--r-md);
   cursor: pointer;
+  transition: all var(--tr-fast);
 }
 
 .view-clip-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .view-clip-item.active {
-  background: rgba(var(--primary-rgb), 0.15);
+  background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.2), rgba(var(--primary-rgb), 0.05));
   border-left: 3px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.view-clip-item.has-chat-activity {
+  border-right: 3px solid rgba(var(--accent-rgb), 0.4);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .clip-item-check {
   margin: 0;
+  cursor: pointer;
 }
 
 .clip-item-name {
@@ -1386,9 +1398,28 @@ select {
   display: flex;
 }
 
-.clip-item:hover .clip-flags-display,
-.view-clip-item:hover .clip-flags-display {
-  display: none;
+/* Static icons persistence */
+.static-chat-icon,
+.static-playlist-icon {
+  opacity: 0.2;
+  font-size: 0.8rem;
+  margin-left: 4px;
+  transition: opacity var(--tr-fast);
+}
+
+.static-chat-icon.has-content {
+  opacity: 0.6;
+  color: var(--accent);
+}
+
+.view-clip-item:hover .static-chat-icon,
+.view-clip-item:hover .static-playlist-icon {
+  opacity: 0.8;
+}
+
+.view-clip-item.active .static-chat-icon,
+.view-clip-item.active .static-playlist-icon {
+  opacity: 1;
 }
 
 .clip-flag-toggle {
