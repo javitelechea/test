@@ -234,42 +234,42 @@
     });
 
     // View Mode Action Bar Buttons
-    if ($('#btn-view-flag')) {
-        $('#btn-view-flag').addEventListener('click', (e) => {
-            const clipId = AppState.get('currentClipId');
-            if (!clipId) return;
-            // Find the position of the button to show the flag popover
-            const flags = AppState.getClipUserFlags(clipId);
-            // Reusing the buildFlagButton logic but opening dropdown directly might be tricky.
-            // Let's just simulate a right-click or use the UI method if available. 
-            // For now, prompt since there's no native "open popover" generic method in UI
-            const flagKeys = Object.keys(UI.FLAG_LABELS);
-            const promptStr = flagKeys.map((k, i) => `${i + 1}: ${UI.FLAG_LABELS[k]}`).join('\\n');
-            const choice = prompt(`Elegir Flag:\\n${promptStr}\\n(0 para borrar)`);
-            if (choice === '0') AppState.setClipUserFlags(clipId, []);
-            else if (choice && flagKeys[parseInt(choice) - 1]) {
-                AppState.setClipUserFlags(clipId, [flagKeys[parseInt(choice) - 1]]);
-            }
-        });
-    }
-
     if ($('#btn-view-draw')) {
         $('#btn-view-draw').addEventListener('click', () => {
             const clipId = AppState.get('currentClipId');
+            const playlistId = AppState.get('activePlaylistId');
             if (clipId && window.DrawingTool) {
-                DrawingTool.startDrawing(clipId);
+                if (playlistId) {
+                    DrawingTool.open(playlistId, clipId);
+                } else {
+                    UI.toast('Necesitas estar en una playlist para dibujar', 'warning');
+                }
             }
         });
     }
 
     if ($('#btn-view-chat')) {
-        $('#btn-view-chat').addEventListener('click', () => {
+        $('#btn-view-chat').addEventListener('click', (e) => {
             const clipId = AppState.get('currentClipId');
+            const playlistId = AppState.get('activePlaylistId');
             if (clipId) {
-                // Find chat panel and toggle it - ui.js handles the actual toggle via clicks usually
-                // but we can just trigger a click on the chat button in the list or open modal
-                const cBtn = document.querySelector(`.clip-item[data-clip-id="${clipId}"] .clip-chat-btn`);
-                if (cBtn) cBtn.click();
+                if (!playlistId) {
+                    UI.toast('Necesitas estar en una playlist para chatear', 'warning');
+                    return;
+                }
+                const btn = e.currentTarget;
+                if (window.UI && typeof window.UI.toggleChatPanel === 'function') {
+                    window.UI.toggleChatPanel(btn, clipId, playlistId, document.body, () => {
+                        if (typeof window.UI.updateViewActionBar === 'function') {
+                            window.UI.updateViewActionBar();
+                        } else {
+                            // fallback refresh
+                            AppState.updateClip(clipId, {});
+                        }
+                    });
+                } else {
+                    UI.toast('Chat no disponible temporalmente', 'warning');
+                }
             }
         });
     }
@@ -281,6 +281,29 @@
                 AppState.deleteClip(clipId);
                 UI.toast('Clip eliminado', 'success');
             }
+        });
+    }
+
+    // Connect View Mode Action Bar IN/OUT buttons
+    const viewActionBar = $('#view-action-bar');
+    if (viewActionBar) {
+        viewActionBar.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const action = btn.dataset.action;
+                const clip = AppState.getCurrentClip();
+                if (!clip) return;
+                let { start_sec, end_sec } = clip;
+                const minDur = 1;
+                const maxDur = VideoPlayer.getDuration() || 3600;
+
+                if (action === 'in-minus') start_sec = Math.max(0, start_sec - 1);
+                if (action === 'in-plus') start_sec = Math.min(end_sec - minDur, start_sec + 1);
+                if (action === 'out-minus') end_sec = Math.max(start_sec + minDur, end_sec - 1);
+                if (action === 'out-plus') end_sec = Math.min(maxDur, end_sec + 1);
+
+                AppState.updateClip(clip.id, { start_sec, end_sec });
+                VideoPlayer.seekTo(action.startsWith('in') ? start_sec : end_sec);
+            });
         });
     }
 

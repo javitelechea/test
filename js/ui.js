@@ -252,63 +252,69 @@ const UI = (() => {
         </div>`;
     }
 
+    function toggleChatPanel(btn, clipId, playlistId, container, rerenderFn) {
+        if (!playlistId) return; // Chat only in playlists
+        const parentEl = btn.closest('.clip-item') || btn.closest('.view-clip-item') || $('#view-action-bar');
+        if (!parentEl) return;
+        const existing = parentEl.querySelector('.clip-chat-panel');
+        if (existing) {
+            existing.remove();
+        } else {
+            // Close any other open chat
+            if (container) container.querySelectorAll('.clip-chat-panel').forEach(p => p.remove());
+            parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
+            // Focus text input
+            const textInput = parentEl.querySelector('.chat-text-input');
+            if (textInput) textInput.focus();
+            // Send handler
+            const sendBtn = parentEl.querySelector('.chat-send-btn');
+            const nameInput = parentEl.querySelector('.chat-name-input');
+            const panel = parentEl.querySelector('.clip-chat-panel');
+            const closeChat = (ev) => {
+                if (panel && !panel.contains(ev.target) && !btn.contains(ev.target)) {
+                    panel.remove();
+                    document.removeEventListener('click', closeChat);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeChat), 10);
+
+            const sendMessage = () => {
+                const name = nameInput.value.trim();
+                const text = textInput.value.trim();
+                if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
+                if (!text) return;
+                localStorage.setItem('sr_chat_name', name);
+                AppState.addComment(playlistId, clipId, name, text);
+                document.removeEventListener('click', closeChat);
+                if (rerenderFn) rerenderFn();
+            };
+            sendBtn.addEventListener('click', sendMessage);
+            textInput.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
+            });
+        }
+    }
+
     function attachChatHandlers(container, rerenderFn) {
         // Toggle chat panel
         container.querySelectorAll('.clip-chat-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const clipId = btn.dataset.clipId;
-                const playlistId = btn.dataset.playlistId;
-                if (!playlistId) return; // Chat only in playlists
-                const parentEl = btn.closest('.clip-item');
-                const existing = parentEl.querySelector('.clip-chat-panel');
-                if (existing) {
-                    existing.remove();
-                } else {
-                    // Close any other open chat
-                    container.querySelectorAll('.clip-chat-panel').forEach(p => p.remove());
-                    parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
-                    // Focus text input
-                    const textInput = parentEl.querySelector('.chat-text-input');
-                    if (textInput) textInput.focus();
-                    // Send handler
-                    const sendBtn = parentEl.querySelector('.chat-send-btn');
-                    const nameInput = parentEl.querySelector('.chat-name-input');
-                    const panel = parentEl.querySelector('.clip-chat-panel');
-                    const closeChat = (ev) => {
-                        if (panel && !panel.contains(ev.target) && !btn.contains(ev.target)) {
-                            panel.remove();
-                            document.removeEventListener('click', closeChat);
-                        }
-                    };
-                    setTimeout(() => document.addEventListener('click', closeChat), 10);
+                toggleChatPanel(btn, btn.dataset.clipId, btn.dataset.playlistId, container, rerenderFn);
+            });
+        });
 
-                    const sendMessage = () => {
-                        const name = nameInput.value.trim();
-                        const text = textInput.value.trim();
-                        if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
-                        if (!text) return;
-                        localStorage.setItem('sr_chat_name', name);
-                        AppState.addComment(playlistId, clipId, name, text);
-                        document.removeEventListener('click', closeChat);
-                        rerenderFn();
-                    };
-                    sendBtn.addEventListener('click', sendMessage);
-                    textInput.addEventListener('keydown', (ev) => {
-                        if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
-                    });
-
-                    // Drawing thumbnail click handlers
-                    panel.querySelectorAll('.drawing-thumb-wrap').forEach(thumb => {
-                        thumb.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const drawingData = thumb.dataset.drawing;
-                            const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
-                            if (drawingData && typeof DrawingTool !== 'undefined') {
-                                DrawingTool.showDrawingOverlay(drawingData, videoTime);
-                            }
-                        });
-                    });
+        // Drawing thumbnail click handlers
+        // Assuming there might be a panel defined elsewhere or this needs to be scoped to the chat panel creation
+        // but since panel is not defined here in the outer scope, we remove or fix this block.
+        // Actually this block belongs INSIDE the chat panel creation or needs to find panels first.
+        container.querySelectorAll('.clip-chat-panel .drawing-thumb-wrap').forEach(thumb => {
+            thumb.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const drawingData = thumb.dataset.drawing;
+                const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
+                if (drawingData && typeof DrawingTool !== 'undefined') {
+                    DrawingTool.showDrawingOverlay(drawingData, videoTime);
                 }
             });
         });
@@ -459,15 +465,35 @@ const UI = (() => {
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
 
-            // Homogeneous Icons Columns
-            const flagIcon = flags.length > 0 ? '<span class="clip-list-icon">🚩</span>' : '';
-            const chatIcon = hasChat ? '<span class="clip-list-icon">💬</span>' : '';
+            let playlistBtnHtml = '';
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReadOnly = urlParams.get('mode') === 'view';
+            if (!isReadOnly) {
+                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+            }
+
+            const exportBtnHtml = VideoPlayer.getType() === 'local'
+                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
+                : '';
+
+            const flagBtnHtml = buildFlagButton(clip.id, flags);
 
             el.innerHTML = `
                 <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
-                <span class="clip-item-name">${tagLabel}</span>
-                <div class="clip-item-icons">${flagIcon}</div>
-                <div class="clip-item-icons">${chatIcon}</div>
+                <div class="clip-item-name-group" style="display:flex; flex-direction:column; min-width:0;">
+                    <span class="clip-item-name">${tagLabel}</span>
+                </div>
+                <!-- Action row (only visible on hover/active via CSS) -->
+                <div class="clip-actions-row">
+                    ${flagBtnHtml}
+                    ${playlistBtnHtml}
+                    ${exportBtnHtml}
+                </div>
+                <!-- Static icons (hidden on hover/active via CSS) -->
+                <div class="clip-flags-display" style="display:flex; justify-content:flex-end;">
+                  <div class="clip-item-icons">${flagIcon}</div>
+                  <div class="clip-item-icons">${chatIcon}</div>
+                </div>
             `;
 
             el.addEventListener('click', (e) => {
@@ -501,6 +527,13 @@ const UI = (() => {
         if (!clipId) {
             actionBar.classList.add('hidden');
             return;
+        }
+
+        const flagsContainer = $('#view-flag-container');
+        if (flagsContainer) {
+            const flags = AppState.getClipUserFlags(clipId);
+            flagsContainer.innerHTML = buildFlagButton(clipId, flags);
+            attachFlagDropdownHandlers(flagsContainer, () => updateViewActionBar());
         }
 
         actionBar.classList.remove('hidden');
@@ -1305,6 +1338,7 @@ const UI = (() => {
         showAddToPlaylistModal, renderPlaylistModalList, showModal, hideModal,
         toggleTagEditor, saveTagFromEditor, deleteTagFromEditor, closeTagInlineEditor,
         getSelectedClipIds, clearClipSelection, renderNotifications,
+        toggleChatPanel, updateViewActionBar, // <-- Added these two explicitly
         refreshAll
     };
 })();

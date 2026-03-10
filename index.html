@@ -178,13 +178,22 @@
         </div>
 
         <div class="view-action-buttons">
-          <div class="view-action-group">
-            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-flag" title="Flags">🚩 Flags</button>
+          <div class="view-action-group" style="align-items: center;">
+            <span id="view-flag-container"></span>
             <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-draw" title="Dibujar">🖌️
               Dibujar</button>
             <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-chat" title="Chat">💬 Chat</button>
             <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-delete" title="Eliminar clip">🗑️
               Borrar</button>
+
+            <span class="ctrl-separator" style="margin: 0 8px;">|</span>
+            <span class="ctrl-label" style="font-size: 0.8rem; color: var(--text-muted);">IN:</span>
+            <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
+            <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
+            <span class="ctrl-separator" style="margin: 0 4px;">|</span>
+            <span class="ctrl-label" style="font-size: 0.8rem; color: var(--text-muted);">OUT:</span>
+            <button class="btn btn-xs btn-outline" data-action="out-minus">−1s</button>
+            <button class="btn btn-xs btn-outline" data-action="out-plus">+1s</button>
           </div>
           <div class="view-action-group">
             <button class="btn btn-sm btn-primary btn-view-action" id="btn-view-export" title="Exportar clip">📥
