@@ -569,7 +569,13 @@ const UI = (() => {
         const hasAnyFilter = activeTagIds.length > 0 || activePlaylistId;
         allBtn.className = 'source-btn' + (!hasAnyFilter ? ' active' : '');
         allBtn.onclick = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'view' && urlParams.get('playlist')) {
+                UI.toast('Estás viendo una playlist compartida', 'info');
+                return; // Lock it
+            }
             AppState.clearTagFilters();
+            AppState.clearPlaylistFilter();
         };
 
         tags.filter(t => !t.isHidden).forEach(tag => {
@@ -611,7 +617,14 @@ const UI = (() => {
             btn.dataset.source = pl.id;
             btn.style.flex = '1';
             btn.textContent = pl.name;
+            const isLockedPlaylist = isReadOnly && sharedPlaylistId && pl.id === sharedPlaylistId;
+
             btn.addEventListener('click', () => {
+                if (isLockedPlaylist) {
+                    UI.toast('Estás viendo una playlist compartida y no podés quitar el filtro', 'info');
+                    return; // Lock it
+                }
+
                 if (isActive) {
                     AppState.clearPlaylistFilter();
                 } else {
@@ -670,9 +683,19 @@ const UI = (() => {
         if (activePlaylistId) {
             const pl = playlists.find(p => p.id === activePlaylistId);
             if (pl) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const isReadOnly = urlParams.get('mode') === 'view';
+                const sharedPlaylistId = urlParams.get('playlist');
+                const isLockedPlaylist = isReadOnly && sharedPlaylistId && pl.id === sharedPlaylistId;
+
                 const chip = document.createElement('span');
                 chip.className = 'filter-chip playlist';
-                chip.innerHTML = `📁 ${pl.name}<button class="filter-chip-x" data-remove-playlist="1" title="Quitar">✕</button>`;
+                if (isLockedPlaylist) {
+                    // Render without the 'X' button
+                    chip.innerHTML = `📁 ${pl.name}`;
+                } else {
+                    chip.innerHTML = `📁 ${pl.name}<button class="filter-chip-x" data-remove-playlist="1" title="Quitar">✕</button>`;
+                }
                 container.appendChild(chip);
             }
         }
