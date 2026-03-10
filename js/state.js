@@ -239,8 +239,12 @@ const AppState = (() => {
       // Replace with this single tag
       state.activeTagFilters = [tagId];
     }
-    // Clear playlist when using tags
-    state.activePlaylistId = null;
+    // Clear playlist when using tags (UNLESS locked)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!(urlParams.get('mode') === 'view' && urlParams.get('playlist'))) {
+      state.activePlaylistId = null;
+    }
+
     state.currentClipId = null;
     state.currentClipIndex = -1;
     emit('viewFiltersChanged');
