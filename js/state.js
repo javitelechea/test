@@ -256,7 +256,13 @@ const AppState = (() => {
 
   function clearTagFilters() {
     state.activeTagFilters = [];
-    state.activePlaylistId = null;
+
+    // Do not clear playlist if locked
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!(urlParams.get('mode') === 'view' && urlParams.get('playlist'))) {
+      state.activePlaylistId = null;
+    }
+
     state.currentClipId = null;
     state.currentClipIndex = -1;
     emit('viewFiltersChanged');
@@ -264,7 +270,13 @@ const AppState = (() => {
 
   function clearAllFilters() {
     state.activeTagFilters = [];
-    state.activePlaylistId = null;
+
+    // Do not clear playlist if locked
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!(urlParams.get('mode') === 'view' && urlParams.get('playlist'))) {
+      state.activePlaylistId = null;
+    }
+
     state.filterFlags = [];
     state.currentClipId = null;
     state.currentClipIndex = -1;
@@ -280,6 +292,13 @@ const AppState = (() => {
   }
 
   function clearPlaylistFilter() {
+    // Hard-lock: cannot clear if viewing a specifically shared playlist
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'view' && urlParams.get('playlist')) {
+      console.warn('Blocked attempt to clear locked shared playlist');
+      return;
+    }
+
     state.activePlaylistId = null;
     state.currentClipId = null;
     state.currentClipIndex = -1;

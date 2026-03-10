@@ -149,8 +149,19 @@
         const hasFilters = AppState.get('activeTagFilters').length > 0 ||
             AppState.get('activePlaylistId') ||
             AppState.get('filterFlags').length > 0;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReadOnly = urlParams.get('mode') === 'view';
+        const sharedPlaylistId = urlParams.get('playlist');
+
+        // If the ONLY filter applied is the locked playlist, hide the reset button
+        const isOnlyLockedPlaylist = isReadOnly && sharedPlaylistId &&
+            AppState.get('activePlaylistId') === sharedPlaylistId &&
+            AppState.get('activeTagFilters').length === 0 &&
+            AppState.get('filterFlags').length === 0;
+
         const resetBtn = UI.$('#btn-reset-all-filters');
-        if (resetBtn) resetBtn.style.display = hasFilters ? 'inline-flex' : 'none';
+        if (resetBtn) resetBtn.style.display = (hasFilters && !isOnlyLockedPlaylist) ? 'inline-flex' : 'none';
     });
 
     AppState.on('panelToggled', () => {
@@ -610,7 +621,18 @@
     const btnResetAll = $('#btn-reset-all-filters');
     if (btnResetAll) {
         btnResetAll.addEventListener('click', () => {
-            AppState.clearAllFilters();
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReadOnly = urlParams.get('mode') === 'view';
+            const sharedPlaylistId = urlParams.get('playlist');
+            const isLockedPlaylist = isReadOnly && sharedPlaylistId && AppState.get('activePlaylistId') === sharedPlaylistId;
+
+            if (isLockedPlaylist) {
+                AppState.clearTagFilters();
+                AppState.clearFilterFlags();
+                UI.toast('Se limpiaron los tags. La playlist compartida se mantiene.', 'info');
+            } else {
+                AppState.clearAllFilters();
+            }
         });
     }
 
