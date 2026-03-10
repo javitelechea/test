@@ -427,6 +427,16 @@ const UI = (() => {
         const activePlaylistId = AppState.get('activePlaylistId');
 
         container.innerHTML = '';
+        if (clips.length > 0 && VideoPlayer.getType() === 'local' && activePlaylistId) {
+            const batchBtn = document.createElement('button');
+            batchBtn.className = 'btn btn-xs btn-outline';
+            batchBtn.style.margin = '8px var(--sp-md)';
+            batchBtn.style.width = 'calc(100% - 2 * var(--sp-md))';
+            batchBtn.innerHTML = '⬇️ Exportar Toda la Playlist (MP4)';
+            batchBtn.addEventListener('click', () => ExportTool.exportPlaylist(activePlaylistId));
+            container.appendChild(batchBtn);
+        }
+
         $('#view-clip-count').textContent = clips.length;
 
         if (clips.length === 0) {
