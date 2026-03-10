@@ -479,7 +479,18 @@ const UI = (() => {
             container.appendChild(el);
         });
 
+        // Checkbox handlers
+        container.querySelectorAll('.clip-item-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const cid = cb.dataset.clipId;
+                if (cb.checked) _selectedClipIds.add(cid);
+                else _selectedClipIds.delete(cid);
+                updateSelectionBar();
+            });
+        });
+
         updateSelectionBar();
+        updateViewActionBar();
     }
 
     function updateViewActionBar() {
