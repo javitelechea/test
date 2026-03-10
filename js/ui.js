@@ -352,13 +352,22 @@ const UI = (() => {
             const isRival = tag && tag.row === 'bottom';
             const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
             const flagBtnHtml = buildFlagButton(clip.id, flags);
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReadOnly = urlParams.get('mode') === 'view';
+
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
+
+            let playlistBtnHtml = '';
+            if (!isReadOnly) {
+                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+            }
+
             el.innerHTML = `
         <span class="${badgeClass}">${tagLabel}</span>
         <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
         <span class="clip-item-spacer"></span>
         ${flagBtnHtml}
-        <button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>
+        ${playlistBtnHtml}
         <button class="clip-action-icon clip-delete-btn" data-clip-id="${clip.id}" title="Eliminar clip">🗑️</button>
       `;
 
@@ -420,6 +429,9 @@ const UI = (() => {
             el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
             el.dataset.clipId = clip.id;
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReadOnly = urlParams.get('mode') === 'view';
+
             const isRival = tag && tag.row === 'bottom';
             const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
             const flagBtnHtml = buildFlagButton(clip.id, flags);
@@ -427,6 +439,12 @@ const UI = (() => {
             const drawBtnHtml = buildDrawButton(activePlaylistId, clip.id);
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
+
+            let playlistBtnHtml = '';
+            if (!isReadOnly) {
+                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+            }
+
             el.innerHTML = `
         <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
         <span class="${badgeClass}">${tagLabel}</span>
@@ -435,7 +453,7 @@ const UI = (() => {
         ${flagBtnHtml}
         ${chatBtnHtml}
         ${drawBtnHtml}
-        <button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>
+        ${playlistBtnHtml}
       `;
 
             el.addEventListener('click', (e) => {
@@ -511,15 +529,24 @@ const UI = (() => {
         const playlists = AppState.get('playlists');
         container.innerHTML = '';
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReadOnly = urlParams.get('mode') === 'view';
+
         playlists.forEach(pl => {
             const items = AppState.get('playlistItems')[pl.id] || [];
             const el = document.createElement('div');
             el.className = 'playlist-item';
+
+            let shareBtnHtml = '';
+            if (!isReadOnly) {
+                shareBtnHtml = `<button class="btn btn-xs btn-share pl-share-btn" data-playlist-id="${pl.id}" title="Compartir playlist">🔗</button>`;
+            }
+
             el.innerHTML = `
         <span class="pl-icon">📁</span>
         <span class="pl-name-click" data-playlist-id="${pl.id}" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="Ver Playlist">${pl.name}</span>
         <span class="pl-count">${items.length} clips</span>
-        <button class="btn btn-xs btn-share pl-share-btn" data-playlist-id="${pl.id}" title="Compartir playlist">🔗</button>
+        ${shareBtnHtml}
       `;
             container.appendChild(el);
         });
@@ -563,7 +590,16 @@ const UI = (() => {
             tagsContainer.appendChild(btn);
         });
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReadOnly = urlParams.get('mode') === 'view';
+        const sharedPlaylistId = urlParams.get('playlist');
+
         playlists.forEach(pl => {
+            // In read-only mode, if a specific playlist is shared, only show that one
+            if (isReadOnly && sharedPlaylistId && pl.id !== sharedPlaylistId) {
+                return;
+            }
+
             const wrap = document.createElement('div');
             wrap.style.display = 'flex';
             wrap.style.alignItems = 'center';
@@ -587,15 +623,18 @@ const UI = (() => {
                 if (toggle) toggle.classList.remove('open');
             });
 
-            const shareBtn = document.createElement('button');
-            shareBtn.className = 'btn btn-xs btn-share pl-share-btn';
-            shareBtn.dataset.playlistId = pl.id;
-            shareBtn.title = 'Compartir playlist';
-            shareBtn.textContent = '🔗';
-            shareBtn.style.padding = '4px 6px';
-
             wrap.appendChild(btn);
-            wrap.appendChild(shareBtn);
+
+            if (!isReadOnly) {
+                const shareBtn = document.createElement('button');
+                shareBtn.className = 'btn btn-xs btn-share pl-share-btn';
+                shareBtn.dataset.playlistId = pl.id;
+                shareBtn.title = 'Compartir playlist';
+                shareBtn.textContent = '🔗';
+                shareBtn.style.padding = '4px 6px';
+                wrap.appendChild(shareBtn);
+            }
+
             playlistsContainer.appendChild(wrap);
         });
 
@@ -886,6 +925,27 @@ const UI = (() => {
         // Exit focus when switching to analyze
         if (mode === 'analyze' && AppState.get('focusView')) {
             AppState.toggleFocusView();
+        }
+
+        // --- READ-ONLY / PLAYLIST VIEW RESTRICTIONS ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const isReadOnly = urlParams.get('mode') === 'view';
+
+        const btnSave = $('#btn-save-project');
+        const btnShare = $('#btn-share-project');
+        const btnImportXml = $('#btn-import-xml');
+        const btnExportXml = $('#btn-export-xml');
+
+        if (isReadOnly) {
+            if (btnSave) btnSave.style.display = 'none';
+            if (btnShare) btnShare.style.display = 'none';
+            if (btnImportXml) btnImportXml.style.display = 'none';
+            if (btnExportXml) btnExportXml.style.display = 'none';
+        } else {
+            if (btnSave) btnSave.style.display = 'inline-flex';
+            if (btnShare && AppState.get('currentProjectId')) btnShare.style.display = 'inline-flex';
+            if (btnImportXml) btnImportXml.style.display = 'inline-flex';
+            if (btnExportXml) btnExportXml.style.display = 'inline-flex';
         }
 
         // Refresh appropriate list
