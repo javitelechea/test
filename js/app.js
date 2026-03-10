@@ -233,6 +233,65 @@
         $('#group-local-file').classList.add('hidden');
     });
 
+    // View Mode Action Bar Buttons
+    if ($('#btn-view-flag')) {
+        $('#btn-view-flag').addEventListener('click', (e) => {
+            const clipId = AppState.get('currentClipId');
+            if (!clipId) return;
+            // Find the position of the button to show the flag popover
+            const flags = AppState.getClipUserFlags(clipId);
+            // Reusing the buildFlagButton logic but opening dropdown directly might be tricky.
+            // Let's just simulate a right-click or use the UI method if available. 
+            // For now, prompt since there's no native "open popover" generic method in UI
+            const flagKeys = Object.keys(UI.FLAG_LABELS);
+            const promptStr = flagKeys.map((k, i) => `${i + 1}: ${UI.FLAG_LABELS[k]}`).join('\\n');
+            const choice = prompt(`Elegir Flag:\\n${promptStr}\\n(0 para borrar)`);
+            if (choice === '0') AppState.setClipUserFlags(clipId, []);
+            else if (choice && flagKeys[parseInt(choice) - 1]) {
+                AppState.setClipUserFlags(clipId, [flagKeys[parseInt(choice) - 1]]);
+            }
+        });
+    }
+
+    if ($('#btn-view-draw')) {
+        $('#btn-view-draw').addEventListener('click', () => {
+            const clipId = AppState.get('currentClipId');
+            if (clipId && window.DrawingTool) {
+                DrawingTool.startDrawing(clipId);
+            }
+        });
+    }
+
+    if ($('#btn-view-chat')) {
+        $('#btn-view-chat').addEventListener('click', () => {
+            const clipId = AppState.get('currentClipId');
+            if (clipId) {
+                // Find chat panel and toggle it - ui.js handles the actual toggle via clicks usually
+                // but we can just trigger a click on the chat button in the list or open modal
+                const cBtn = document.querySelector(`.clip-item[data-clip-id="${clipId}"] .clip-chat-btn`);
+                if (cBtn) cBtn.click();
+            }
+        });
+    }
+
+    if ($('#btn-view-delete')) {
+        $('#btn-view-delete').addEventListener('click', () => {
+            const clipId = AppState.get('currentClipId');
+            if (clipId) {
+                AppState.deleteClip(clipId);
+                UI.toast('Clip eliminado', 'success');
+            }
+        });
+    }
+
+    if ($('#btn-view-export')) {
+        $('#btn-view-export').addEventListener('click', () => {
+            const clipId = AppState.get('currentClipId');
+            const clip = AppState.get('clips').find(c => c.id === clipId);
+            if (clip) ExportTool.exportClip(clip);
+        });
+    }
+
     $('#btn-cancel-game').addEventListener('click', () => {
         UI.hideModal('modal-new-game');
     });
@@ -429,6 +488,18 @@
         if (playlists.length === 0) { UI.toast('Creá una playlist primero (o creala en el modal)', 'error'); }
 
         UI.showAddToPlaylistModal(selected);
+    });
+
+    // Delete selected clips (View mode multi-select)
+    $('#btn-delete-selected').addEventListener('click', () => {
+        const selected = UI.getSelectedClipIds();
+        if (selected.length === 0) { UI.toast('Seleccioná al menos un clip', 'error'); return; }
+
+        if (confirm(`¿Estás seguro de que querés eliminar ${selected.length} clips?`)) {
+            selected.forEach(id => AppState.deleteClip(id));
+            UI.clearClipSelection();
+            UI.toast('Clips eliminados', 'success');
+        }
     });
 
     // Create playlist from modal
@@ -1070,6 +1141,10 @@
     // ═══════════════════════════════════════
 
     async function init() {
+        if (VideoPlayer.onTimeUpdate) {
+            VideoPlayer.onTimeUpdate(UI.updateClipPlayhead);
+        }
+
         // Check if loading a shared project from URL
         const projectIdFromUrl = FirebaseData.getProjectIdFromUrl();
         const playlistIdFromUrl = FirebaseData.getPlaylistIdFromUrl();

@@ -449,91 +449,96 @@ const UI = (() => {
             const tag = AppState.getTagType(clip.tag_type_id);
             const clipNum = AppState.getClipNumber(clip);
             const flags = AppState.getClipUserFlags(clip.id);
+            const comments = AppState.getMessages(clip.id) || [];
+
             const el = document.createElement('div');
             el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
             el.dataset.clipId = clip.id;
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const isReadOnly = urlParams.get('mode') === 'view';
-
-            const isRival = tag && tag.row === 'bottom';
-            const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
-            const flagBtnHtml = buildFlagButton(clip.id, flags);
-            const chatBtnHtml = buildChatButton(activePlaylistId, clip.id);
-            const drawBtnHtml = buildDrawButton(activePlaylistId, clip.id);
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
 
-            let playlistBtnHtml = '';
-            if (!isReadOnly) {
-                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
-            }
-
-            const exportBtnHtml = VideoPlayer.getType() === 'local'
-                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
-                : '';
+            // Homogeneous Icons Columns
+            const flagIcon = flags.length > 0 ? '<span class="clip-list-icon">🚩</span>' : '';
+            const chatIcon = comments.length > 0 ? '<span class="clip-list-icon">💬</span>' : '';
 
             el.innerHTML = `
-        <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
-        <span class="${badgeClass}">${tagLabel}</span>
-        <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
-        <span class="clip-item-spacer"></span>
-        ${flagBtnHtml}
-        ${chatBtnHtml}
-        ${drawBtnHtml}
-        ${playlistBtnHtml}
-        ${exportBtnHtml}
-      `;
+                <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
+                <span class="clip-item-name">${tagLabel}</span>
+                <div class="clip-item-icons">${flagIcon}</div>
+                <div class="clip-item-icons">${chatIcon}</div>
+            `;
 
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.clip-flag-btn')) return;
-                if (e.target.closest('.flag-popover')) return;
-                if (e.target.classList.contains('clip-checkbox')) return;
-                if (e.target.closest('.clip-chat-panel')) return;
-                if (e.target.closest('.clip-chat-btn')) return;
-                if (e.target.closest('.clip-action-icon')) return;
+                if (e.target.classList.contains('clip-item-check')) return;
                 AppState.setCurrentClip(clip.id);
                 VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+                updateViewActionBar(); // Show/Update the new bar
             });
 
             container.appendChild(el);
         });
 
-        // Checkbox handlers
-        container.querySelectorAll('.clip-checkbox').forEach(cb => {
-            cb.addEventListener('change', () => {
-                const cid = cb.dataset.clipId;
-                if (cb.checked) _selectedClipIds.add(cid);
-                else _selectedClipIds.delete(cid);
-                updateSelectionBar();
-            });
-        });
-
-        // Flag dropdown
-        attachFlagDropdownHandlers(container, () => renderViewClips());
-
-        // Playlist add buttons
-        container.querySelectorAll('.clip-add-playlist').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showAddToPlaylistModal(btn.dataset.clipId);
-            });
-        });
-
-        // Chat handlers
-        attachChatHandlers(container, () => renderViewClips());
-
-        // Export buttons
-        container.querySelectorAll('.clip-export-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const clip = AppState.get('clips').find(c => c.id === btn.dataset.clipId);
-                if (clip) ExportTool.exportClip(clip);
-            });
-        });
-
         updateSelectionBar();
     }
+
+    function updateViewActionBar() {
+        const clipId = AppState.get('currentClipId');
+        const actionBar = $('#view-action-bar');
+
+        if (!clipId) {
+            actionBar.classList.add('hidden');
+            return;
+        }
+
+        actionBar.classList.remove('hidden');
+        renderClipContextSlider(clipId);
+    }
+
+    function renderClipContextSlider(clipId) {
+        const clip = AppState.get('clips').find(c => c.id === clipId);
+        if (!clip) return;
+
+        const margin = 4; // 4 seconds margin
+        const video = document.getElementById('local-video') || { duration: 3600 };
+        const totalDuration = video.duration || 3600;
+
+        const contextStart = Math.max(0, clip.start_sec - margin);
+        const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
+        const contextRange = contextEnd - contextStart;
+
+        $('#context-start-time').textContent = formatTime(contextStart);
+        $('#context-end-time').textContent = formatTime(contextEnd);
+
+        // Position the highlight (clip range)
+        const leftPerc = ((clip.start_sec - contextStart) / contextRange) * 100;
+        const widthPerc = ((clip.end_sec - clip.start_sec) / contextRange) * 100;
+
+        const highlight = $('#clip-range-highlight');
+        highlight.style.left = `${leftPerc}%`;
+        highlight.style.width = `${widthPerc}%`;
+    }
+
+    // Call this from the main loop to update playhead
+    function updateClipPlayhead() {
+        const clipId = AppState.get('currentClipId');
+        if (!clipId || $('#view-action-bar').classList.contains('hidden')) return;
+
+        const clip = AppState.get('clips').find(c => c.id === clipId);
+        if (!clip) return;
+
+        const currentTime = VideoPlayer.getCurrentTime();
+        const margin = 4;
+        const contextStart = Math.max(0, clip.start_sec - margin);
+        const contextRange = (clip.end_sec - clip.start_sec) + 8;
+
+        if (currentTime >= contextStart && currentTime <= contextStart + contextRange) {
+            const perc = ((currentTime - contextStart) / contextRange) * 100;
+            const playhead = $('#clip-playhead');
+            if (playhead) playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
+        }
+    }
+
 
     function updateSelectionBar() {
         const bar = $('#view-selection-bar');
@@ -1167,12 +1172,120 @@ const UI = (() => {
         closeTagInlineEditor();
     }
 
+    // ═══ CONTEXTUAL SLIDER DRAG LOGIC ═══
+    function initContextSliderDrag() {
+        const slider = $('#clip-context-slider');
+        const handleStart = $('#handle-start');
+        const handleEnd = $('#handle-end');
+        if (!slider || !handleStart || !handleEnd) return;
+
+        let dragging = null; // 'start' or 'end'
+        let startX, initialStartSec, initialEndSec;
+        let contextStart, contextRange;
+
+        const onDown = (type, e) => {
+            dragging = type;
+            startX = e.clientX || e.touches[0].clientX;
+            const clipId = AppState.get('currentClipId');
+            const clip = AppState.get('clips').find(c => c.id === clipId);
+            if (!clip) return;
+            initialStartSec = clip.start_sec;
+            initialEndSec = clip.end_sec;
+
+            const margin = 4;
+            const video = document.getElementById('local-video') || { duration: 3600 };
+            const totalDuration = video.duration || 3600;
+            contextStart = Math.max(0, clip.start_sec - margin);
+            const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
+            contextRange = contextEnd - contextStart;
+
+            e.preventDefault();
+        };
+
+        handleStart.addEventListener('mousedown', (e) => onDown('start', e));
+        handleStart.addEventListener('touchstart', (e) => onDown('start', e), { passive: false });
+        handleEnd.addEventListener('mousedown', (e) => onDown('end', e));
+        handleEnd.addEventListener('touchstart', (e) => onDown('end', e), { passive: false });
+
+        const onMove = (e) => {
+            if (!dragging) return;
+            const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const dx = x - startX;
+            const sliderRect = slider.getBoundingClientRect();
+            const pxPerSec = sliderRect.width / contextRange;
+            const dt = dx / pxPerSec;
+
+            let newStart = initialStartSec;
+            let newEnd = initialEndSec;
+            const minDuration = 1; // 1 second minimum
+
+            if (dragging === 'start') {
+                newStart = Math.max(0, Math.min(initialEndSec - minDuration, initialStartSec + dt));
+            } else {
+                const video = document.getElementById('local-video') || { duration: 3600 };
+                const totalDuration = video.duration || 3600;
+                newEnd = Math.max(initialStartSec + minDuration, Math.min(totalDuration, initialEndSec + dt));
+            }
+
+            const clipId = AppState.get('currentClipId');
+            // Optimistic rendering for smooth UI
+            const leftPerc = ((newStart - contextStart) / contextRange) * 100;
+            const widthPerc = ((newEnd - newStart) / contextRange) * 100;
+            const highlight = $('#clip-range-highlight');
+            highlight.style.left = `${leftPerc}%`;
+            highlight.style.width = `${widthPerc}%`;
+
+            // Actually update clip slowly or on end? 
+            // Better to update on drag for visual feedback on video
+            VideoPlayer.seekTo(dragging === 'start' ? newStart : newEnd);
+        };
+
+        const onUp = (e) => {
+            if (!dragging) return;
+            const x = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : startX);
+            const dx = x - startX;
+            const sliderRect = slider.getBoundingClientRect();
+            const pxPerSec = sliderRect.width / contextRange;
+            const dt = dx / pxPerSec;
+
+            let newStart = initialStartSec;
+            let newEnd = initialEndSec;
+            const minDuration = 1;
+
+            if (dragging === 'start') {
+                newStart = Math.max(0, Math.min(initialEndSec - minDuration, initialStartSec + dt));
+            } else {
+                const video = document.getElementById('local-video') || { duration: 3600 };
+                const totalDuration = video.duration || 3600;
+                newEnd = Math.max(initialStartSec + minDuration, Math.min(totalDuration, initialEndSec + dt));
+            }
+
+            const clipId = AppState.get('currentClipId');
+            if (clipId) {
+                AppState.updateClip(clipId, { start_sec: newStart, end_sec: newEnd });
+                // Let the AppState event handle the view re-renders, but seek to start
+                VideoPlayer.seekTo(newStart);
+                VideoPlayer.pause();
+                toast('Clip duration updated', 'success');
+            }
+            dragging = null;
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchend', onUp);
+    }
+
+    // Call it right away
+    setTimeout(initContextSliderDrag, 100);
+
     return {
         $, $$, toast, formatTime,
         FLAG_EMOJI, FLAG_LABELS,
         updateProjectTitle, renderTagButtons,
         renderAnalyzeClips, renderViewClips,
-        updateClipEditControls,
+        updateClipEditControls, updateClipPlayhead,
         renderAnalyzePlaylists,
         renderViewSources, updateFlagFilterBar, updateFlagButtons,
         updateFocusView, updatePanelState, updateMode,

@@ -11,6 +11,7 @@ const VideoPlayer = (() => {
     let _clipEndSec = null;
     let _pollTimer = null;
     let _onReadyCb = null;
+    let _onTimeUpdateCb = null;
 
     function init() {
         _localPlayer = document.getElementById('local-video');
@@ -83,7 +84,16 @@ const VideoPlayer = (() => {
         }
     }
 
+    function onTimeUpdate(cb) {
+        _onTimeUpdateCb = cb;
+    }
+
+    function _triggerTimeUpdate() {
+        if (_onTimeUpdateCb) _onTimeUpdateCb(getCurrentTime());
+    }
+
     function _onLocalTimeUpdate() {
+        _triggerTimeUpdate();
         if (_type === 'local' && _clipEndSec !== null && _localPlayer.currentTime >= _clipEndSec) {
             _localPlayer.pause();
             _clipEndSec = null;
@@ -93,16 +103,19 @@ const VideoPlayer = (() => {
     function _startPoll() {
         _stopPoll();
         _pollTimer = setInterval(() => {
+            _triggerTimeUpdate();
             if (_type === 'youtube' && _ytPlayer && _clipEndSec !== null) {
                 if (_ytPlayer.getCurrentTime() >= _clipEndSec) {
                     _ytPlayer.pauseVideo();
                     _clipEndSec = null;
                     _stopPoll();
                 }
+            } else if (_type === 'youtube' && _ytPlayer) {
+                // Keep polling for playhead update even if not in clip
             } else {
                 _stopPoll();
             }
-        }, 200);
+        }, 100);
     }
 
     function _stopPoll() {

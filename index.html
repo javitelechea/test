@@ -162,6 +162,37 @@
           </div>
         </div>
       </div>
+
+      <!-- [VIEW MODE] Clip Action Bar & Context Slider -->
+      <div id="view-action-bar" class="view-action-bar hidden">
+        <div id="clip-context-container" class="clip-context-container">
+          <div class="context-time-label" id="context-start-time">00:00</div>
+          <div id="clip-context-slider" class="clip-context-slider">
+            <div id="clip-range-highlight" class="clip-range-highlight">
+              <div class="resize-handle handle-left" id="handle-start"></div>
+              <div class="resize-handle handle-right" id="handle-end"></div>
+            </div>
+            <div id="clip-playhead" class="clip-playhead"></div>
+          </div>
+          <div class="context-time-label" id="context-end-time">00:00</div>
+        </div>
+
+        <div class="view-action-buttons">
+          <div class="view-action-group">
+            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-flag" title="Flags">🚩 Flags</button>
+            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-draw" title="Dibujar">🖌️
+              Dibujar</button>
+            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-chat" title="Chat">💬 Chat</button>
+            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-delete" title="Eliminar clip">🗑️
+              Borrar</button>
+          </div>
+          <div class="view-action-group">
+            <button class="btn btn-sm btn-primary btn-view-action" id="btn-view-export" title="Exportar clip">📥
+              Exportar MP4</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Clip Edit Controls (visible in both modes when a clip is selected) -->
       <div class="clip-edit-group" id="clip-edit-controls"
         style="display:none; padding: 6px var(--sp-md); background: var(--bg-secondary); border-top: 1px solid var(--border);">
@@ -260,7 +291,10 @@
           <!-- Selection action bar -->
           <div id="view-selection-bar" class="view-selection-bar" style="display:none;">
             <span><span id="view-selected-count">0</span> seleccionados</span>
-            <button id="btn-add-selected-to-playlist" class="btn btn-xs btn-primary">📋 Agregar a playlist</button>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-add-selected-to-playlist" class="btn btn-xs btn-primary">📋 A playlist</button>
+              <button id="btn-delete-selected" class="btn btn-xs btn-danger">🗑️ Borrar</button>
+            </div>
           </div>
         </div>
         <div class="panel-actions">
@@ -436,6 +470,26 @@
       <div style="margin-top:16px;text-align:right;">
         <button id="btn-close-projects" class="btn btn-sm btn-ghost">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Export Progress Modal -->
+  <div id="modal-export-progress" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box" style="max-width: 400px; text-align: center;">
+      <h3 id="export-title">Exportando...</h3>
+      <p id="export-status" style="font-size: 0.9rem; color: var(--text-muted); margin: 10px 0;">Procesando clip, por
+        favor esperá.</p>
+
+      <div class="progress-wrapper"
+        style="background: rgba(255,255,255,0.1); height: 10px; border-radius: 5px; overflow: hidden; margin: 20px 0;">
+        <div id="export-progress-bar"
+          style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+      </div>
+
+      <div id="export-info" style="font-size: 0.8rem; margin-bottom: 15px;">0% completo</div>
+
+      <p style="font-size: 0.75rem; color: var(--accent); opacity: 0.8;">No cierres la pestaña hasta que termine.</p>
     </div>
   </div>
 

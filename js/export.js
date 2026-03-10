@@ -14,18 +14,26 @@ const ExportTool = (() => {
         const videoSrc = VideoPlayer.getSource();
         if (!videoSrc) return;
 
-        if (!skipToast) UI.toast('Procesando clip (Alta Calidad)...', 'info', 3000);
+        if (!skipToast) {
+            $('#export-title').textContent = "Exportando Clip";
+            $('#export-status').textContent = "Iniciando procesamiento...";
+            $('#export-progress-bar').style.width = '0%';
+            $('#export-info').textContent = "0% completo";
+            UI.showModal('modal-export-progress');
+        }
 
         try {
             await _processVideoClipping(videoSrc, clip, (progress) => {
-                // UI feedback if needed
-                if (!skipToast && progress % 25 === 0) {
-                    UI.toast(`Procesando: ${progress}%`, 'info', 800);
-                }
+                $('#export-progress-bar').style.width = `${progress}%`;
+                $('#export-info').textContent = `${progress}% completo`;
             });
-            if (!skipToast) UI.toast('Clip exportado ✅', 'success');
+            if (!skipToast) {
+                UI.hideModal('modal-export-progress');
+                UI.toast('Clip exportado ✅', 'success');
+            }
         } catch (err) {
             console.error('Export error:', err);
+            UI.hideModal('modal-export-progress');
             UI.toast('Error al exportar. Asegurate de que el video sea compatible.', 'error');
         }
     }
@@ -115,11 +123,25 @@ const ExportTool = (() => {
         if (clips.length === 0) return UI.toast('Playlist vacía', 'warning');
         if (!confirm(`Exportar ${clips.length} clips de esta playlist?`)) return;
 
-        UI.toast('Exportando playlist...', 'info');
+        $('#export-title').textContent = "Exportando Playlist";
+        $('#export-progress-bar').style.width = '0%';
+        UI.showModal('modal-export-progress');
+
         for (let i = 0; i < clips.length; i++) {
-            await exportClip(clips[i], true);
-            UI.toast(`Playlist: ${i + 1}/${clips.length}`, 'info', 1000);
+            const clip = clips[i];
+            const tag = AppState.getTagType(clip.tag_type_id);
+            const label = tag ? tag.label : 'Clip';
+
+            $('#export-status').textContent = `Exportando (${i + 1}/${clips.length}): ${label}`;
+
+            await exportClip(clip, true); // true avoids closing modal each time
+
+            const overallProgress = Math.floor(((i + 1) / clips.length) * 100);
+            $('#export-progress-bar').style.width = `${overallProgress}%`;
+            $('#export-info').textContent = `Total: ${i + 1} de ${clips.length} clips`;
         }
+
+        UI.hideModal('modal-export-progress');
         UI.toast('Playlist exportada ✅', 'success');
     }
 
