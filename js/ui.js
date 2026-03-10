@@ -164,6 +164,9 @@ const UI = (() => {
                 // Create popover
                 const popover = document.createElement('div');
                 popover.className = 'flag-popover';
+                if (btn.closest('#view-action-bar')) {
+                    popover.classList.add('flag-popover-up');
+                }
                 const allFlags = ['bueno', 'acorregir', 'duda', 'importante'];
                 const currentFlags = AppState.getClipUserFlags(clipId);
                 popover.innerHTML = allFlags.map(flag => {
@@ -486,6 +489,7 @@ const UI = (() => {
                 <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
                 <div class="clip-item-name-group" style="display:flex; flex-direction:column; min-width:0;">
                     <span class="clip-item-name">${tagLabel}</span>
+                    <span class="clip-time" style="font-size: 0.7rem; color: var(--text-muted);">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
                 </div>
                 <!-- Action row (only visible on hover/active via CSS) -->
                 <div class="clip-actions-row">
@@ -568,7 +572,6 @@ const UI = (() => {
         highlight.style.width = `${widthPerc}%`;
     }
 
-    // Call this from the main loop to update playhead
     function updateClipPlayhead() {
         const clipId = AppState.get('currentClipId');
         if (!clipId || $('#view-action-bar').classList.contains('hidden')) return;
@@ -578,10 +581,13 @@ const UI = (() => {
 
         const currentTime = VideoPlayer.getCurrentTime();
         const margin = 4;
+        const video = document.getElementById('local-video') || { duration: 3600 };
+        const totalDuration = video.duration || 3600;
         const contextStart = Math.max(0, clip.start_sec - margin);
-        const contextRange = (clip.end_sec - clip.start_sec) + 8;
+        const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
+        const contextRange = contextEnd - contextStart;
 
-        if (currentTime >= contextStart && currentTime <= contextStart + contextRange) {
+        if (currentTime >= contextStart && currentTime <= contextEnd) {
             const perc = ((currentTime - contextStart) / contextRange) * 100;
             const playhead = $('#clip-playhead');
             if (playhead) playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;

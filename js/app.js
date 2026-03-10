@@ -258,10 +258,10 @@
                     return;
                 }
                 const btn = e.currentTarget;
-                if (window.UI && typeof window.UI.toggleChatPanel === 'function') {
-                    window.UI.toggleChatPanel(btn, clipId, playlistId, document.body, () => {
-                        if (typeof window.UI.updateViewActionBar === 'function') {
-                            window.UI.updateViewActionBar();
+                if (typeof UI.toggleChatPanel === 'function') {
+                    UI.toggleChatPanel(btn, clipId, playlistId, document.body, () => {
+                        if (typeof UI.updateViewActionBar === 'function') {
+                            UI.updateViewActionBar();
                         } else {
                             // fallback refresh
                             AppState.updateClip(clipId, {});

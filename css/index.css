@@ -428,6 +428,13 @@ select {
   box-shadow: var(--shadow-lg);
 }
 
+.flag-popover-up {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
 .flag-popover-btn {
   background: none;
   border: 1px solid transparent;
