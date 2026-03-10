@@ -209,6 +209,15 @@ const AppState = (() => {
     return clip;
   }
 
+  function updateClip(clipId, data) {
+    const clip = state.clips.find(c => c.id === clipId);
+    if (!clip) return;
+    Object.assign(clip, data);
+    DemoData.updateClip(clipId, data);
+    emit('clipsUpdated', state.clips);
+    emit('clipChanged', clip);
+  }
+
   function updateClipBounds(clipId, field, delta) {
     const clip = state.clips.find(c => c.id === clipId);
     if (!clip) return;
@@ -705,7 +714,7 @@ const AppState = (() => {
     getFilteredClips, getClipUserFlags,
     setMode, setCurrentGame, setCurrentClip,
     addGame, renameGame, duplicateGame, updateGameVideo,
-    addClip, updateClipBounds, deleteClip,
+    addClip, updateClip, updateClipBounds, deleteClip,
     addPlaylist, addClipToPlaylist,
     toggleFlag,
     toggleTagFilter, removeTagFilter, clearTagFilters, clearAllFilters,

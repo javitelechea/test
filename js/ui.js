@@ -566,8 +566,7 @@ const UI = (() => {
         if (!clip) return;
 
         const margin = 4; // 4 seconds margin
-        const video = document.getElementById('local-video') || { duration: 3600 };
-        const totalDuration = video.duration || 3600;
+        const totalDuration = VideoPlayer.getDuration() || 3600;
 
         const contextStart = Math.max(0, clip.start_sec - margin);
         const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
@@ -587,26 +586,32 @@ const UI = (() => {
 
     function updateClipPlayhead() {
         const clipId = AppState.get('currentClipId');
-        if (!clipId || $('#view-action-bar').classList.contains('hidden')) return;
+        if (!clipId) return;
+        const actionBar = $('#view-action-bar');
+        if (!actionBar || actionBar.classList.contains('hidden')) return;
 
         const clip = AppState.get('clips').find(c => c.id === clipId);
         if (!clip) return;
 
         const currentTime = VideoPlayer.getCurrentTime();
+        const duration = VideoPlayer.getDuration() || 3600;
         const margin = 4;
-        const video = document.getElementById('local-video') || { duration: 3600 };
-        const totalDuration = video.duration || 3600;
         const contextStart = Math.max(0, clip.start_sec - margin);
-        const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
-        const contextRange = contextEnd - contextStart;
+        const contextEnd = Math.min(duration, clip.end_sec + margin);
+        const contextRange = Math.max(0.1, contextEnd - contextStart);
 
-        if (currentTime >= contextStart && currentTime <= contextEnd) {
+        const playhead = $('#clip-playhead');
+        const timeEl = $('#clip-playhead-time');
+
+        if (currentTime >= (contextStart - 0.5) && currentTime <= (contextEnd + 0.5)) {
             const perc = ((currentTime - contextStart) / contextRange) * 100;
-            const playhead = $('#clip-playhead');
-            if (playhead) playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
-
-            const timeEl = $('#clip-playhead-time');
+            if (playhead) {
+                playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
+                playhead.style.display = 'block';
+            }
             if (timeEl) timeEl.textContent = formatTime(currentTime);
+        } else {
+            if (playhead) playhead.style.display = 'none';
         }
     }
 

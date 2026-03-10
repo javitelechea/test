@@ -89,7 +89,8 @@ const VideoPlayer = (() => {
     }
 
     function _triggerTimeUpdate() {
-        if (_onTimeUpdateCb) _onTimeUpdateCb(getCurrentTime());
+        const time = getCurrentTime();
+        if (_onTimeUpdateCb) _onTimeUpdateCb(time);
     }
 
     function _onLocalTimeUpdate() {
@@ -189,6 +190,12 @@ const VideoPlayer = (() => {
         return -1;
     }
 
+    function getDuration() {
+        if (_type === 'youtube' && _ytPlayer) return _ytPlayer.getDuration() || 0;
+        if (_type === 'local' && _localPlayer) return _localPlayer.duration || 0;
+        return 0;
+    }
+
     function isReady() { return _ready; }
     function getType() { return _type; }
     function getSource() {
@@ -196,5 +203,5 @@ const VideoPlayer = (() => {
         return local ? local.src : null;
     }
 
-    return { init, loadVideo, seekTo, play, pause, getCurrentTime, playClip, clearClipEnd, isReady, getPlayerState, getType, getSource };
+    return { init, loadVideo, seekTo, play, pause, getCurrentTime, getDuration, playClip, clearClipEnd, isReady, getPlayerState, getType, getSource };
 })();

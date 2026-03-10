@@ -42,8 +42,17 @@
 
     // Mark as unsaved when anything editable changes
     const markUnsaved = () => hasUnsavedChanges = true;
-    AppState.on('clipChanged', markUnsaved);
-    AppState.on('clipsUpdated', markUnsaved);
+    AppState.on('clipChanged', (clip) => {
+        markUnsaved();
+        if (typeof UI.updateViewActionBar === 'function') UI.updateViewActionBar();
+        if (typeof UI.renderViewClips === 'function') UI.renderViewClips(AppState.getFilteredClips());
+    });
+    AppState.on('clipsUpdated', (clips) => {
+        markUnsaved();
+        if (typeof UI.renderViewClips === 'function') {
+            UI.renderViewClips(AppState.getFilteredClips());
+        }
+    });
     AppState.on('playlistsUpdated', markUnsaved);
     AppState.on('flagsUpdated', markUnsaved);
     AppState.on('clipCommentsUpdated', markUnsaved);
@@ -303,6 +312,10 @@
 
                 AppState.updateClip(clip.id, { start_sec, end_sec });
                 VideoPlayer.seekTo(action.startsWith('in') ? start_sec : end_sec);
+
+                // Force a sync if events fail
+                if (typeof UI.updateViewActionBar === 'function') UI.updateViewActionBar();
+                if (typeof UI.renderViewClips === 'function') UI.renderViewClips(AppState.getFilteredClips());
             });
         });
     }
@@ -1165,7 +1178,9 @@
 
     async function init() {
         if (VideoPlayer.onTimeUpdate) {
-            VideoPlayer.onTimeUpdate(UI.updateClipPlayhead);
+            VideoPlayer.onTimeUpdate((time) => {
+                UI.updateClipPlayhead();
+            });
         }
 
         // Check if loading a shared project from URL
