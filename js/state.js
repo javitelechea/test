@@ -381,6 +381,24 @@ const AppState = (() => {
     emit('initialized', state);
   }
 
+  function clearProject() {
+    state.currentGameId = null;
+    state.currentClipId = null;
+    state.currentClipIndex = -1;
+    state.games = [];
+    state.clips = [];
+    state.playlists = [];
+    state.playlistItems = {};
+    state.clipFlags = {};
+    state.playlistComments = {};
+    state.activityLog = [];
+    state.activeTagFilters = [];
+    state.activePlaylistId = null;
+    state.filterFlags = [];
+    state.currentProjectId = null;
+    emit('gameChanged', null);
+  }
+
   // ── Chat / Comments (per playlist) ──
   function addComment(playlistId, clipId, name, text, drawing, videoTimeSec) {
     const key = playlistId + '::' + clipId;
@@ -650,7 +668,7 @@ const AppState = (() => {
   }
 
   return {
-    on, off, emit, get, init,
+    on, off, emit, get, init, clearProject,
     getCurrentGame, getCurrentClip, getTagType,
     getFilteredClips, getClipUserFlags,
     setMode, setCurrentGame, setCurrentClip,

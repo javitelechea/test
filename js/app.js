@@ -105,7 +105,7 @@
 
     AppState.on('gameChanged', (game) => {
         UI.updateNoGameOverlay();
-        UI.renderGameSelector();
+        UI.updateProjectTitle();
         UI.renderAnalyzeClips();
         UI.renderAnalyzePlaylists();
         UI.renderViewClips();
@@ -223,13 +223,7 @@
         });
     }
 
-    // Game selector
-    $('#game-selector').addEventListener('change', (e) => {
-        const id = e.target.value;
-        AppState.setCurrentGame(id || null);
-    });
-
-    // New game modal
+    // New project modal
     $('#btn-new-game').addEventListener('click', () => {
         $('#modal-new-game').classList.remove('hidden');
         $('#input-game-title').focus();
@@ -255,12 +249,20 @@
         const ytId = extractYouTubeId(rawYtInput);
         if (!ytId) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
 
+        // Start a fresh project — clear old project's ID from State
+        AppState.clearProject();
+        DemoData.clear();
+
         const game = AppState.addGame(title, ytId);
         AppState.setCurrentGame(game.id);
         UI.hideModal('modal-new-game');
         $('#input-game-title').value = '';
         $('#input-youtube-id').value = '';
-        UI.toast(`Partido creado: ${title}`, 'success');
+
+        $('#btn-share-project').style.display = 'none'; // Hide share until saved
+
+        UI.toast(`Proyecto creado: ${title}`, 'success');
+        UI.refreshAll();
     });
 
     // Panel collapse

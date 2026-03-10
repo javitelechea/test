@@ -39,19 +39,19 @@ const UI = (() => {
         setTimeout(() => { if (el.parentNode) el.remove(); }, 2600);
     }
 
-    // ═══ GAME SELECTOR ═══
-    function renderGameSelector() {
-        const sel = $('#game-selector');
-        const games = AppState.get('games');
+    // ═══ PROJECT TITLE ═══
+    function updateProjectTitle() {
+        const titleEl = $('#current-project-title');
+        if (!titleEl) return;
         const currentId = AppState.get('currentGameId');
-        sel.innerHTML = '<option value="">— Seleccionar partido —</option>';
-        games.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g.id;
-            opt.textContent = g.title;
-            if (g.id === currentId) opt.selected = true;
-            sel.appendChild(opt);
-        });
+        const games = AppState.get('games');
+        const game = games.find(g => g.id === currentId);
+
+        if (game) {
+            titleEl.textContent = game.title;
+        } else {
+            titleEl.textContent = '';
+        }
     }
 
     // ═══ TAG BUTTONS (Below Video — Top & Bottom rows) ═══
@@ -1130,7 +1130,7 @@ const UI = (() => {
     return {
         $, $$, toast, formatTime,
         FLAG_EMOJI, FLAG_LABELS,
-        renderGameSelector, renderTagButtons,
+        updateProjectTitle, renderTagButtons,
         renderAnalyzeClips, renderViewClips,
         updateClipEditControls,
         renderAnalyzePlaylists,

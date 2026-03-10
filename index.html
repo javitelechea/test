@@ -50,10 +50,9 @@
     </div>
 
     <div class="header-right">
-      <select id="game-selector" class="game-select">
-        <option value="">— Seleccionar partido —</option>
-      </select>
-      <button id="btn-new-game" class="btn btn-primary btn-sm">+ Partido</button>
+      <h3 id="current-project-title" class="project-title-header"
+        style="margin:0 12px; font-size: 0.9rem; font-weight: 500; color: var(--text);"></h3>
+      <button id="btn-new-game" class="btn btn-primary btn-sm">+ Nuevo Proyecto</button>
       <button id="btn-import-xml" class="btn btn-outline btn-sm" title="Importar proyecto desde XML">⬆️ XML</button>
       <input type="file" id="input-import-xml" accept=".xml" style="display:none;" />
 
@@ -270,11 +269,11 @@
     </aside>
   </main>
 
-  <!-- ═══════ NEW GAME MODAL ═══════ -->
+  <!-- ═══════ NEW PROJECT MODAL ═══════ -->
   <div id="modal-new-game" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-box">
-      <h2>Nuevo Partido</h2>
+      <h2>Nuevo Proyecto</h2>
       <label class="form-label">
         Título
         <input id="input-game-title" type="text" class="input" placeholder="Ej: vs River Plate — Fecha 12" />
@@ -287,7 +286,7 @@
       </label>
       <div class="modal-actions">
         <button id="btn-cancel-game" class="btn btn-ghost">Cancelar</button>
-        <button id="btn-save-game" class="btn btn-primary">Crear partido</button>
+        <button id="btn-save-game" class="btn btn-primary">Crear proyecto</button>
       </div>
     </div>
   </div>
