@@ -449,10 +449,11 @@ const UI = (() => {
             const tag = AppState.getTagType(clip.tag_type_id);
             const clipNum = AppState.getClipNumber(clip);
             const flags = AppState.getClipUserFlags(clip.id);
-            const comments = AppState.getMessages(clip.id) || [];
+            const commentsDict = AppState.get('playlistComments') || {};
+            const hasChat = Object.keys(commentsDict).some(k => k.endsWith('_' + clip.id) && commentsDict[k].length > 0);
 
             const el = document.createElement('div');
-            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
+            el.className = 'view-clip-item' + (clip.id === currentClipId ? ' active' : '');
             el.dataset.clipId = clip.id;
 
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
@@ -460,7 +461,7 @@ const UI = (() => {
 
             // Homogeneous Icons Columns
             const flagIcon = flags.length > 0 ? '<span class="clip-list-icon">🚩</span>' : '';
-            const chatIcon = comments.length > 0 ? '<span class="clip-list-icon">💬</span>' : '';
+            const chatIcon = hasChat ? '<span class="clip-list-icon">💬</span>' : '';
 
             el.innerHTML = `
                 <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />

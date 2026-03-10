@@ -796,7 +796,7 @@ select {
 }
 
 /* CLIP ITEM GRID (Homogeneous) */
-.clip-item {
+.view-clip-item {
   display: grid;
   grid-template-columns: 32px 1fr auto auto;
   align-items: center;
@@ -806,11 +806,11 @@ select {
   cursor: pointer;
 }
 
-.clip-item:hover {
+.view-clip-item:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.clip-item.active {
+.view-clip-item.active {
   background: rgba(var(--primary-rgb), 0.15);
   border-left: 3px solid var(--primary);
 }
