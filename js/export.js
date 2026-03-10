@@ -75,9 +75,9 @@ const ExportTool = (() => {
 
             recorder.start();
 
-            // We use a faster playback rate to "capture" faster
-            // WebCodecs would be faster but this is more compatible while being 8x-16x faster
-            procVideo.playbackRate = 16.0;
+            // We use 1.0 speed to ensure correct recording speed/sync.
+            // Using a hidden video keeps it "silent" for the user.
+            procVideo.playbackRate = 1.0;
             procVideo.play();
 
             const check = () => {
@@ -109,19 +109,6 @@ const ExportTool = (() => {
         return 'video/webm';
     }
 
-    async function exportAllClips() {
-        const clips = AppState.get('clips');
-        if (clips.length === 0) return UI.toast('No hay clips', 'warning');
-        if (!confirm(`Exportar ${clips.length} clips en ráfaga de alta calidad?`)) return;
-
-        UI.toast('Iniciando exportación masiva...', 'info');
-        for (let i = 0; i < clips.length; i++) {
-            await exportClip(clips[i], true);
-            UI.toast(`Exportado ${i + 1}/${clips.length}`, 'info', 1000);
-        }
-        UI.toast('¡Todos los clips exportados! ✅', 'success');
-    }
-
     async function exportPlaylist(playlistId) {
         const items = AppState.get('playlistItems')[playlistId] || [];
         const clips = AppState.get('clips').filter(c => items.includes(c.id));
@@ -136,5 +123,5 @@ const ExportTool = (() => {
         UI.toast('Playlist exportada ✅', 'success');
     }
 
-    return { exportClip, exportPlaylist, exportAllClips };
+    return { exportClip, exportPlaylist };
 })();
