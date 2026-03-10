@@ -606,11 +606,15 @@ select {
 
 #player-container {
   flex: 1;
+  min-height: 0;
+  /* Prevents growing based on content */
   position: relative;
   background: #000;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  /* Safeguard */
 }
 
 #youtube-player {
@@ -683,6 +687,8 @@ select {
   padding: var(--sp-sm) var(--sp-md);
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  /* Ensures buttons are always visible */
 }
 
 .tag-team-row {
@@ -837,6 +843,7 @@ select {
   padding-top: 4px;
   border-top: 1px solid var(--border);
   margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .ctrl-label {
