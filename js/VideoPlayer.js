@@ -76,7 +76,7 @@ const VideoPlayer = (() => {
     }
 
     function _onYTStateChange(event) {
-        if (event.data === YT.PlayerState.PLAYING && _clipEndSec !== null) {
+        if (event.data === YT.PlayerState.PLAYING) {
             _startPoll();
         }
         if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
@@ -94,7 +94,10 @@ const VideoPlayer = (() => {
 
     function _onLocalTimeUpdate() {
         _triggerTimeUpdate();
-        if (_type === 'local' && _clipEndSec !== null && _localPlayer.currentTime >= _clipEndSec) {
+        if (_localPlayer.paused) return;
+
+        // Ensure polling style updates for local if needed, although timeupdate should suffice
+        if (_clipEndSec !== null && _localPlayer.currentTime >= _clipEndSec) {
             _localPlayer.pause();
             _clipEndSec = null;
         }

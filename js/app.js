@@ -238,7 +238,7 @@
         $('#btn-view-draw').addEventListener('click', () => {
             const clipId = AppState.get('currentClipId');
             const playlistId = AppState.get('activePlaylistId');
-            if (clipId && window.DrawingTool) {
+            if (clipId && typeof DrawingTool !== 'undefined') {
                 if (playlistId) {
                     DrawingTool.open(playlistId, clipId);
                 } else {

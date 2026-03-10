@@ -537,11 +537,24 @@ const UI = (() => {
             return;
         }
 
-        const flagsContainer = $('#view-flag-container');
+        const flagsContainer = $('#view-inline-flags');
         if (flagsContainer) {
-            const flags = AppState.getClipUserFlags(clipId);
-            flagsContainer.innerHTML = buildFlagButton(clipId, flags);
-            attachFlagDropdownHandlers(flagsContainer, () => updateViewActionBar());
+            const allFlags = ['bueno', 'acorregir', 'duda', 'importante'];
+            const currentFlags = AppState.getClipUserFlags(clipId);
+            flagsContainer.innerHTML = '';
+            allFlags.forEach(flag => {
+                const isActive = currentFlags.includes(flag);
+                const btn = document.createElement('button');
+                btn.className = `flag-inline-btn ${isActive ? 'active' : ''}`;
+                btn.innerHTML = FLAG_EMOJI[flag];
+                btn.title = FLAG_LABELS[flag];
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    AppState.toggleFlag(clipId, flag);
+                    updateViewActionBar();
+                });
+                flagsContainer.appendChild(btn);
+            });
         }
 
         actionBar.classList.remove('hidden');
@@ -591,6 +604,9 @@ const UI = (() => {
             const perc = ((currentTime - contextStart) / contextRange) * 100;
             const playhead = $('#clip-playhead');
             if (playhead) playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
+
+            const timeEl = $('#clip-playhead-time');
+            if (timeEl) timeEl.textContent = formatTime(currentTime);
         }
     }
 
@@ -1229,103 +1245,102 @@ const UI = (() => {
 
     // ═══ CONTEXTUAL SLIDER DRAG LOGIC ═══
     function initContextSliderDrag() {
-        const slider = $('#clip-context-slider');
-        const handleStart = $('#handle-start');
-        const handleEnd = $('#handle-end');
-        if (!slider || !handleStart || !handleEnd) return;
+        const slider = document.getElementById('clip-context-slider');
+        if (!slider) return;
 
-        let dragging = null; // 'start' or 'end'
-        let startX, initialStartSec, initialEndSec;
-        let contextStart, contextRange;
+        let dragging = null; // 'start' | 'end' | 'seek'
+        let initialStartSec, initialEndSec, contextStart, contextEnd, contextRange;
 
-        const onDown = (type, e) => {
-            dragging = type;
-            startX = e.clientX || e.touches[0].clientX;
+        const onDown = (e) => {
             const clipId = AppState.get('currentClipId');
             const clip = AppState.get('clips').find(c => c.id === clipId);
             if (!clip) return;
+
+            const rect = slider.getBoundingClientRect();
+            const margin = 4;
+            const video = document.getElementById('local-video') || { duration: 3600 };
+            const totalDur = video.duration || 3600;
+
+            contextStart = Math.max(0, clip.start_sec - margin);
+            contextEnd = Math.min(totalDur, clip.end_sec + margin);
+            contextRange = contextEnd - contextStart;
             initialStartSec = clip.start_sec;
             initialEndSec = clip.end_sec;
 
-            const margin = 4;
-            const video = document.getElementById('local-video') || { duration: 3600 };
-            const totalDuration = video.duration || 3600;
-            contextStart = Math.max(0, clip.start_sec - margin);
-            const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
-            contextRange = contextEnd - contextStart;
-
-            e.preventDefault();
+            const handle = e.target.closest('.resize-handle');
+            if (handle) {
+                dragging = handle.dataset.handle; // 'start' or 'end'
+                e.preventDefault(); e.stopPropagation();
+            } else {
+                dragging = 'seek';
+                updateSeek(e);
+            }
         };
 
-        handleStart.addEventListener('mousedown', (e) => onDown('start', e));
-        handleStart.addEventListener('touchstart', (e) => onDown('start', e), { passive: false });
-        handleEnd.addEventListener('mousedown', (e) => onDown('end', e));
-        handleEnd.addEventListener('touchstart', (e) => onDown('end', e), { passive: false });
+        const updateSeek = (e) => {
+            const rect = slider.getBoundingClientRect();
+            const x = (e.clientX || (e.touches ? e.touches[0].clientX : 0)) - rect.left;
+            const perc = Math.max(0, Math.min(1, x / rect.width));
+            const targetTime = contextStart + (perc * contextRange);
+            VideoPlayer.seekTo(targetTime);
+        };
 
         const onMove = (e) => {
             if (!dragging) return;
-            const x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const dx = x - startX;
-            const sliderRect = slider.getBoundingClientRect();
-            const pxPerSec = sliderRect.width / contextRange;
-            const dt = dx / pxPerSec;
+            if (dragging === 'seek') {
+                updateSeek(e);
+                return;
+            }
+
+            const rect = slider.getBoundingClientRect();
+            const x = (e.clientX || (e.touches ? e.touches[0].clientX : 0)) - rect.left;
+            const perc = Math.max(0, Math.min(1, x / rect.width));
+            const time = contextStart + (perc * contextRange);
 
             let newStart = initialStartSec;
             let newEnd = initialEndSec;
-            const minDuration = 1; // 1 second minimum
 
             if (dragging === 'start') {
-                newStart = Math.max(0, Math.min(initialEndSec - minDuration, initialStartSec + dt));
-            } else {
-                const video = document.getElementById('local-video') || { duration: 3600 };
-                const totalDuration = video.duration || 3600;
-                newEnd = Math.max(initialStartSec + minDuration, Math.min(totalDuration, initialEndSec + dt));
+                newStart = Math.min(initialEndSec - 0.5, time);
+            } else if (dragging === 'end') {
+                newEnd = Math.max(initialStartSec + 0.5, time);
             }
 
-            const clipId = AppState.get('currentClipId');
-            // Optimistic rendering for smooth UI
+            // Visual feedback
             const leftPerc = ((newStart - contextStart) / contextRange) * 100;
             const widthPerc = ((newEnd - newStart) / contextRange) * 100;
             const highlight = $('#clip-range-highlight');
-            highlight.style.left = `${leftPerc}%`;
-            highlight.style.width = `${widthPerc}%`;
+            if (highlight) {
+                highlight.style.left = `${leftPerc}%`;
+                highlight.style.width = `${widthPerc}%`;
+            }
 
-            // Actually update clip slowly or on end? 
-            // Better to update on drag for visual feedback on video
+            // Preview video
             VideoPlayer.seekTo(dragging === 'start' ? newStart : newEnd);
         };
 
-        const onUp = (e) => {
+        const onUp = () => {
             if (!dragging) return;
-            const x = e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : startX);
-            const dx = x - startX;
-            const sliderRect = slider.getBoundingClientRect();
-            const pxPerSec = sliderRect.width / contextRange;
-            const dt = dx / pxPerSec;
+            if (dragging === 'start' || dragging === 'end') {
+                const highlight = $('#clip-range-highlight');
+                const rect = slider.getBoundingClientRect();
+                const hRect = highlight.getBoundingClientRect();
 
-            let newStart = initialStartSec;
-            let newEnd = initialEndSec;
-            const minDuration = 1;
+                const startPerc = (hRect.left - rect.left) / rect.width;
+                const endPerc = (hRect.right - rect.left) / rect.width;
 
-            if (dragging === 'start') {
-                newStart = Math.max(0, Math.min(initialEndSec - minDuration, initialStartSec + dt));
-            } else {
-                const video = document.getElementById('local-video') || { duration: 3600 };
-                const totalDuration = video.duration || 3600;
-                newEnd = Math.max(initialStartSec + minDuration, Math.min(totalDuration, initialEndSec + dt));
-            }
+                const finalStart = contextStart + (startPerc * contextRange);
+                const finalEnd = contextStart + (endPerc * contextRange);
 
-            const clipId = AppState.get('currentClipId');
-            if (clipId) {
-                AppState.updateClip(clipId, { start_sec: newStart, end_sec: newEnd });
-                // Let the AppState event handle the view re-renders, but seek to start
-                VideoPlayer.seekTo(newStart);
-                VideoPlayer.pause();
+                const clipId = AppState.get('currentClipId');
+                AppState.updateClip(clipId, { start_sec: finalStart, end_sec: finalEnd });
                 toast('Clip duration updated', 'success');
             }
             dragging = null;
         };
 
+        slider.addEventListener('mousedown', onDown);
+        slider.addEventListener('touchstart', onDown, { passive: false });
         window.addEventListener('mousemove', onMove);
         window.addEventListener('touchmove', onMove, { passive: false });
         window.addEventListener('mouseup', onUp);
