@@ -644,20 +644,27 @@
                 return;
             }
 
-            const blob = new Blob([xml], { type: 'text/xml' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-
             const game = AppState.getCurrentGame();
             const title = game && game.title ? game.title : 'proyecto';
-            a.href = url;
-            a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.xml`;
+            const filename = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.xml`;
 
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            URL.revokeObjectURL(url);
+            // Use alternative download approach
+            const blob = new Blob([xml], { type: 'application/xml;charset=utf-8;' });
+            if (navigator.msSaveBlob) { // IE 10+
+                navigator.msSaveBlob(blob, filename);
+            } else {
+                const link = document.createElement("a");
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }
+            }
         });
     }
 
