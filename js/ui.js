@@ -1051,7 +1051,7 @@ const UI = (() => {
 
     // ═══ FULL REFRESH ═══
     function refreshAll() {
-        renderGameSelector();
+        updateProjectTitle();
         renderTagButtons();
         updateNoGameOverlay();
         updateMode();
