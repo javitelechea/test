@@ -8,9 +8,12 @@ const ExportTool = (() => {
     let _chunks = [];
 
     function _getBestMimeType() {
+        // QuickTime/Mac likes H.264. Safari supports video/mp4. 
+        // Chrome often only supports video/webm even if it has H.264.
         const types = [
-            'video/mp4;codecs=h264',
+            'video/mp4;codecs=avc1',
             'video/mp4',
+            'video/webm;codecs=h264',
             'video/webm;codecs=vp9',
             'video/webm'
         ];
@@ -27,7 +30,16 @@ const ExportTool = (() => {
             return;
         }
 
-        if (!skipToast) UI.toast('Grabando clip (tiempo real)...', 'info', 3000);
+        const mimeType = _getBestMimeType();
+        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+        if (!skipToast) {
+            if (isChrome && isMac && !mimeType.includes('mp4')) {
+                UI.toast('Nota: Chrome en Mac usa WebM. Si QuickTime falla, usá VLC o abrí la app en Safari.', 'info', 6000);
+            }
+            UI.toast('Grabando clip (tiempo real)...', 'info', 3000);
+        }
 
         // Seek to start
         video.currentTime = clip.start_sec;
@@ -40,7 +52,6 @@ const ExportTool = (() => {
         });
 
         const stream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
-        const mimeType = _getBestMimeType();
         const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
 
         _recorder = new MediaRecorder(stream, { mimeType });
@@ -52,7 +63,6 @@ const ExportTool = (() => {
             };
 
             _recorder.onstop = () => {
-                video.playbackRate = 1.0; // Restore speed
                 const blob = new Blob(_chunks, { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -68,13 +78,11 @@ const ExportTool = (() => {
             };
 
             _recorder.start();
-            video.playbackRate = 4.0; // 4x Faster export!
             video.play();
 
             const checkStop = () => {
                 if (video.currentTime >= clip.end_sec) {
                     video.pause();
-                    video.playbackRate = 1.0;
                     _recorder.stop();
                     video.removeEventListener('timeupdate', checkStop);
                 }
