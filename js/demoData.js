@@ -107,6 +107,73 @@ const DemoData = (() => {
         return g;
     }
 
+    function renameGame(gameId, newTitle) {
+        const g = games.find(x => x.id === gameId);
+        if (g) {
+            g.title = newTitle;
+            return true;
+        }
+        return false;
+    }
+
+    function duplicateGame(gameId) {
+        const original = games.find(x => x.id === gameId);
+        if (!original) return null;
+
+        const newGame = createGame(original.title + ' (copia)', original.youtube_video_id);
+        if (original.videoType) newGame.videoType = original.videoType;
+
+        // Clone clips
+        const gameClips = clips.filter(c => c.game_id === gameId);
+        const clipMap = {}; // oldId -> newId
+
+        gameClips.forEach(c => {
+            const newClip = createClip(newGame.id, c.tag_type_id, c.t_sec, c.start_sec, c.end_sec);
+            clipMap[c.id] = newClip.id;
+
+            // Clone flags for this clip
+            const flags = clipFlags.filter(f => f.clip_id === c.id);
+            flags.forEach(f => {
+                clipFlags.push({
+                    id: uuid(),
+                    clip_id: newClip.id,
+                    user_id: f.user_id,
+                    flag: f.flag,
+                    created_at: new Date().toISOString()
+                });
+            });
+        });
+
+        // Clone playlists
+        const gamePlaylists = playlists.filter(p => p.game_id === gameId);
+        gamePlaylists.forEach(p => {
+            const newPl = createPlaylist(newGame.id, p.name);
+            const items = playlistItems.filter(pi => pi.playlist_id === p.id);
+            items.forEach(pi => {
+                if (clipMap[pi.clip_id]) {
+                    playlistItems.push({
+                        id: uuid(),
+                        playlist_id: newPl.id,
+                        clip_id: clipMap[pi.clip_id],
+                        order: pi.order
+                    });
+                }
+            });
+        });
+
+        return newGame;
+    }
+
+    function updateGameVideo(gameId, source, type) {
+        const g = games.find(x => x.id === gameId);
+        if (g) {
+            g.youtube_video_id = source;
+            g.videoType = type;
+            return true;
+        }
+        return false;
+    }
+
     function getClipsForGame(gameId) {
         return clips.filter(c => c.game_id === gameId).sort((a, b) => a.t_sec - b.t_sec);
     }
@@ -259,7 +326,7 @@ const DemoData = (() => {
     seed();
 
     return {
-        getTagTypes, getGames, createGame,
+        getTagTypes, getGames, createGame, renameGame, duplicateGame, updateGameVideo,
         getClipsForGame, createClip, updateClip, deleteClip,
         getPlaylistsForGame, createPlaylist, getPlaylistItems, addClipToPlaylist,
         getClipFlags, addFlag, removeFlag,

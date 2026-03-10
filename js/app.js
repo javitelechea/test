@@ -227,6 +227,10 @@
     $('#btn-new-game').addEventListener('click', () => {
         $('#modal-new-game').classList.remove('hidden');
         $('#input-game-title').focus();
+        // Force reset toggle visibility
+        document.querySelector('input[name="video-type"][value="youtube"]').checked = true;
+        $('#group-yt-id').classList.remove('hidden');
+        $('#group-local-file').classList.add('hidden');
     });
 
     $('#btn-cancel-game').addEventListener('click', () => {
@@ -247,6 +251,68 @@
             $('#group-yt-id').classList.toggle('hidden', isLocal);
             $('#group-local-file').classList.toggle('hidden', !isLocal);
         });
+    });
+
+    // Edit project modal
+    let _editingProjectId = null;
+
+    document.querySelectorAll('input[name="edit-video-type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isLocal = e.target.value === 'local';
+            $('#group-edit-yt').classList.toggle('hidden', isLocal);
+            $('#group-edit-local').classList.toggle('hidden', !isLocal);
+        });
+    });
+
+    $('#btn-cancel-edit-video').addEventListener('click', () => {
+        UI.hideModal('modal-edit-video');
+        _editingProjectId = null;
+    });
+
+    $('#btn-save-edit-video').addEventListener('click', async () => {
+        if (!_editingProjectId) return;
+        const title = $('#input-edit-title').value.trim();
+        const videoType = document.querySelector('input[name="edit-video-type"]:checked').value;
+        let source = '';
+
+        if (!title) { UI.toast('Ingresá un título', 'error'); return; }
+
+        if (videoType === 'youtube') {
+            const rawYtInput = $('#input-edit-yt').value.trim();
+            if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
+            source = extractYouTubeId(rawYtInput);
+        } else {
+            const fileInput = $('#input-edit-local');
+            if (fileInput.files && fileInput.files.length > 0) {
+                source = URL.createObjectURL(fileInput.files[0]);
+            } else {
+                // Keep old source if no new file selected and was already local?
+                // Actually, if they switch to local they MUST select a file.
+                // If they were already local, they might want to just change title.
+                const game = AppState.get('games').find(g => g.id === _editingProjectId);
+                if (game && game.videoType === 'local') {
+                    source = game.youtube_video_id;
+                } else {
+                    UI.toast('Seleccioná un archivo de video', 'error');
+                    return;
+                }
+            }
+        }
+
+        AppState.renameGame(_editingProjectId, title);
+        AppState.updateGameVideo(_editingProjectId, source, videoType);
+
+        UI.hideModal('modal-edit-video');
+        UI.toast('Proyecto actualizado', 'success');
+
+        // If current game was edited, refresh player
+        if (AppState.get('currentGameId') === _editingProjectId) {
+            VideoPlayer.loadVideo(source, videoType);
+            UI.updateProjectTitle();
+        }
+
+        $('#btn-my-projects').click(); // Refresh projects list
+        _editingProjectId = null;
     });
 
     $('#btn-save-game').addEventListener('click', async () => {
@@ -435,16 +501,73 @@
 
                 const actions = document.createElement('div');
                 actions.className = 'project-actions';
+                actions.style.display = 'flex';
+                actions.style.gap = '4px';
+
+                if (!p.isShared) {
+                    // Rename btn
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'btn btn-xs btn-ghost';
+                    renameBtn.innerHTML = '✏️';
+                    renameBtn.title = 'Renombrar';
+                    renameBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const newTitle = prompt('Nuevo nombre:', p.title);
+                        if (newTitle && newTitle.trim()) {
+                            AppState.renameGame(p.id, newTitle.trim());
+                            UI.toast('Proyecto renombrado', 'success');
+                            $('#btn-my-projects').click(); // Refresh list
+                        }
+                    });
+                    actions.appendChild(renameBtn);
+
+                    // Duplicate btn
+                    const duplicateBtn = document.createElement('button');
+                    duplicateBtn.className = 'btn btn-xs btn-ghost';
+                    duplicateBtn.innerHTML = '👯';
+                    duplicateBtn.title = 'Duplicar';
+                    duplicateBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        AppState.duplicateGame(p.id);
+                        UI.toast('Proyecto duplicado', 'success');
+                        $('#btn-my-projects').click(); // Refresh list
+                    });
+                    actions.appendChild(duplicateBtn);
+
+                    // Edit Video btn
+                    const editVideoBtn = document.createElement('button');
+                    editVideoBtn.className = 'btn btn-xs btn-ghost';
+                    editVideoBtn.innerHTML = '🎞️';
+                    editVideoBtn.title = 'Cambiar Video';
+                    editVideoBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        _editingProjectId = p.id;
+                        $('#modal-edit-video').classList.remove('hidden');
+                        $('#input-edit-title').value = p.title;
+                        const isYT = !p.youtube_video_id.startsWith('blob:');
+                        if (isYT) {
+                            $('#edit-video-yt').checked = true;
+                            $('#input-edit-yt').value = p.youtube_video_id;
+                        } else {
+                            $('#edit-video-local').checked = true;
+                        }
+                        // Trigger toggle visibility
+                        $('#edit-video-yt').dispatchEvent(new Event('change'));
+                    });
+                    actions.appendChild(editVideoBtn);
+                }
 
                 // Share btn
                 const shareBtn = document.createElement('button');
                 shareBtn.className = 'btn btn-xs btn-share project-share-btn';
                 shareBtn.innerHTML = '🔗';
                 shareBtn.title = 'Compartir link';
-                shareBtn.addEventListener('click', () => {
+                shareBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     _pendingShareUrlBase = FirebaseData.getShareUrl(p.id);
                     UI.showModal('modal-share-options');
                 });
+                actions.appendChild(shareBtn);
 
                 // Load btn
                 const loadBtn = document.createElement('button');

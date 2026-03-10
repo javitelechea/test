@@ -84,10 +84,10 @@ const DrawingTool = (() => {
         _lineWidth = 4;
 
         // Capture exact video timestamp
-        _videoTimestamp = YTPlayer.getCurrentTime();
+        _videoTimestamp = VideoPlayer.getCurrentTime();
 
         // Pause the video
-        YTPlayer.pause();
+        VideoPlayer.pause();
 
         // Resize canvas to match player container
         _resizeCanvas();
@@ -254,8 +254,8 @@ const DrawingTool = (() => {
     function showDrawingOverlay(dataUrl, videoTimeSec) {
         // Seek to the exact moment the drawing was made
         if (videoTimeSec !== undefined && videoTimeSec !== null) {
-            YTPlayer.seekTo(videoTimeSec);
-            YTPlayer.pause();
+            VideoPlayer.seekTo(videoTimeSec);
+            VideoPlayer.pause();
         }
 
         // Create or reuse overlay

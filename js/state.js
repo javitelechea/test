@@ -164,6 +164,37 @@ const AppState = (() => {
     return game;
   }
 
+  function renameGame(gameId, newTitle) {
+    const success = DemoData.renameGame(gameId, newTitle);
+    if (success) {
+      state.games = DemoData.getGames();
+      emit('gamesUpdated', state.games);
+      const g = getCurrentGame();
+      if (g && g.id === gameId) emit('gameChanged', g);
+    }
+    return success;
+  }
+
+  function duplicateGame(gameId) {
+    const newGame = DemoData.duplicateGame(gameId);
+    if (newGame) {
+      state.games = DemoData.getGames();
+      emit('gamesUpdated', state.games);
+    }
+    return newGame;
+  }
+
+  function updateGameVideo(gameId, source, type) {
+    const success = DemoData.updateGameVideo(gameId, source, type);
+    if (success) {
+      state.games = DemoData.getGames();
+      emit('gamesUpdated', state.games);
+      const g = getCurrentGame();
+      if (g && g.id === gameId) emit('gameChanged', g);
+    }
+    return success;
+  }
+
   function addClip(tagTypeId, tSec) {
     const tag = getTagType(tagTypeId);
     if (!tag) return null;
@@ -672,7 +703,8 @@ const AppState = (() => {
     getCurrentGame, getCurrentClip, getTagType,
     getFilteredClips, getClipUserFlags,
     setMode, setCurrentGame, setCurrentClip,
-    addGame, addClip, updateClipBounds, deleteClip,
+    addGame, renameGame, duplicateGame, updateGameVideo,
+    addClip, updateClipBounds, deleteClip,
     addPlaylist, addClipToPlaylist,
     toggleFlag,
     toggleTagFilter, removeTagFilter, clearTagFilters, clearAllFilters,

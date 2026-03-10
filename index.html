@@ -316,6 +316,45 @@
     </div>
   </div>
 
+  <div id="modal-edit-video" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box">
+      <h2>Editar Proyecto</h2>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px;">Título</label>
+        <input id="input-edit-title" type="text" class="input" placeholder="Nombre del proyecto" style="width:100%;" />
+      </div>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px;">Tipo de Video</label>
+        <div class="video-type-toggle" style="display:flex; gap:16px;">
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
+            <input type="radio" id="edit-video-yt" name="edit-video-type" value="youtube" checked> YouTube
+          </label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
+            <input type="radio" id="edit-video-local" name="edit-video-type" value="local"> Local
+          </label>
+        </div>
+      </div>
+
+      <div id="group-edit-yt" class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px;">YouTube Video ID</label>
+        <input id="input-edit-yt" type="text" class="input" placeholder="ID o link de YouTube" style="width:100%;" />
+      </div>
+
+      <div id="group-edit-local" class="form-group hidden" style="margin-bottom: 12px;">
+        <label class="form-label" style="display:block; margin-bottom:4px;">Archivo Local</label>
+        <input id="input-edit-local" type="file" accept="video/*" style="width:100%; font-size:0.85rem;" />
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-cancel-edit-video" class="btn btn-ghost">Cancelar</button>
+        <button id="btn-save-edit-video" class="btn btn-primary">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════ ADD TO PLAYLIST MODAL ═══════ -->
   <div id="modal-add-to-playlist" class="modal hidden">
     <div class="modal-backdrop"></div>
