@@ -1055,6 +1055,8 @@ const UI = (() => {
         renderTagButtons();
         updateNoGameOverlay();
         updateMode();
+        renderAnalyzeClips();
+        renderViewClips();
         renderAnalyzePlaylists();
         updatePanelState();
         updateFocusView();
