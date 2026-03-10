@@ -175,6 +175,10 @@ const VideoPlayer = (() => {
 
     function isReady() { return _ready; }
     function getType() { return _type; }
+    function getSource() {
+        const local = document.getElementById('local-video');
+        return local ? local.src : null;
+    }
 
-    return { init, loadVideo, seekTo, play, pause, getCurrentTime, playClip, clearClipEnd, isReady, getPlayerState, getType };
+    return { init, loadVideo, seekTo, play, pause, getCurrentTime, playClip, clearClipEnd, isReady, getPlayerState, getType, getSource };
 })();

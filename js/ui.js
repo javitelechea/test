@@ -336,6 +336,16 @@ const UI = (() => {
         container.innerHTML = '';
         $('#clip-count').textContent = clips.length;
 
+        if (clips.length > 0 && VideoPlayer.getType() === 'local') {
+            const batchBtn = document.createElement('button');
+            batchBtn.className = 'btn btn-xs btn-outline';
+            batchBtn.style.margin = '8px var(--sp-md)';
+            batchBtn.style.width = 'calc(100% - 2 * var(--sp-md))';
+            batchBtn.innerHTML = '⬇️ Exportar Todos los Clips (MP4)';
+            batchBtn.addEventListener('click', () => ExportTool.exportAllClips());
+            container.appendChild(batchBtn);
+        }
+
         if (clips.length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;padding:8px;">Sin clips. Usá los tags para crear.</p>';
             return;
