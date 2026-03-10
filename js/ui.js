@@ -498,7 +498,7 @@ const UI = (() => {
     function updateClipEditControls() {
         const controls = $('#clip-edit-controls');
         const clip = AppState.getCurrentClip();
-        if (clip && AppState.get('mode') === 'analyze') {
+        if (clip) {
             controls.style.display = 'flex';
         } else {
             controls.style.display = 'none';
@@ -874,13 +874,12 @@ const UI = (() => {
             panelAnalyze.classList.remove('hidden');
             panelView.classList.add('hidden');
             tagBar.classList.remove('hidden');
-            updateClipEditControls();
         } else { // mode === 'view'
             panelAnalyze.classList.add('hidden');
             panelView.classList.remove('hidden');
             tagBar.classList.add('hidden');
-            $('#clip-edit-controls').style.display = 'none';
         }
+        updateClipEditControls();
 
         // Slider animation
         if (slider) slider.classList.toggle('right', mode === 'view');

@@ -124,7 +124,8 @@
           <button id="btn-toggle-tag-editor" class="btn btn-xs btn-ghost tag-editor-toggle"
             title="Editar tags">✏️</button>
         </div>
-        <div class="clip-edit-group" id="clip-edit-controls" style="display:none;">
+        <div class="clip-edit-group" id="clip-edit-controls"
+          style="display:none; padding: 6px var(--sp-md); background: var(--bg-secondary); border-top: 1px solid var(--border);">
           <span class="ctrl-label">IN:</span>
           <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
           <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
@@ -154,6 +155,19 @@
           </div>
         </div>
       </div>
+      <!-- Clip Edit Controls (visible in both modes when a clip is selected) -->
+      <div class="clip-edit-group" id="clip-edit-controls"
+        style="display:none; padding: 6px var(--sp-md); background: var(--bg-secondary); border-top: 1px solid var(--border);">
+        <span class="ctrl-label">IN:</span>
+        <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
+        <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
+        <span class="ctrl-separator">|</span>
+        <span class="ctrl-label">OUT:</span>
+        <button class="btn btn-xs btn-outline" data-action="out-minus">−1s</button>
+        <button class="btn btn-xs btn-outline" data-action="out-plus">+1s</button>
+        <span class="ctrl-separator">|</span>
+        <button class="btn btn-xs btn-danger" data-action="delete-clip">🗑️</button>
+      </div>
     </section>
 
     <!-- Side Panel -->
@@ -164,20 +178,21 @@
 
       <!-- ═══ ANALYZE MODE PANEL ═══ -->
       <div id="panel-analyze" class="panel-content">
-        <div class="panel-section">
+        <div class="panel-section flex-grow">
           <h3 class="section-title">
             Clips del partido
             <span id="clip-count" class="badge">0</span>
           </h3>
           <div id="analyze-clip-list" class="clip-list"></div>
         </div>
-        <div class="panel-section">
+        <div class="panel-section panel-section-fixed"
+          style="border-top: 1px solid var(--border); padding-top: var(--sp-sm);">
           <h3 class="section-title">Playlists</h3>
           <div class="playlist-create-row">
             <input id="new-playlist-name" type="text" placeholder="Nombre de playlist…" class="input-sm" />
             <button id="btn-create-playlist" class="btn btn-sm btn-primary">+</button>
           </div>
-          <div id="analyze-playlists" class="playlist-list"></div>
+          <div id="analyze-playlists" class="playlist-list" style="max-height: 25vh; overflow-y: auto;"></div>
         </div>
       </div>
 
