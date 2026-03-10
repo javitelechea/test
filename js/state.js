@@ -68,44 +68,56 @@ const AppState = (() => {
   }
 
   function getFilteredClips() {
-    let clips = [...state.clips];
+    let filtered = [...state.clips].filter(c => c.game_id === state.currentGameId);
 
-    // Filter by playlist (exclusive)
+    // Filter by Playlist if one is active
     if (state.activePlaylistId) {
-      const itemClipIds = state.playlistItems[state.activePlaylistId] || [];
-      clips = clips.filter(c => itemClipIds.includes(c.id));
+      const playlistClipIds = DemoData.getPlaylistItems(state.activePlaylistId);
+      filtered = filtered.filter(clip => playlistClipIds.includes(clip.id));
     }
 
-    // Filter by tags (any of selected, additive)
+    // Filter by Tags
     if (state.activeTagFilters.length > 0) {
-      clips = clips.filter(c => state.activeTagFilters.includes(c.tag_type_id));
+      filtered = filtered.filter(clip => state.activeTagFilters.includes(clip.tag_type_id));
     }
 
-    // Filter by flags and/or chat (cross-filter)
+    // Filter by Flags and/or Chat
     if (state.filterFlags.length > 0) {
       const realFlags = state.filterFlags.filter(f => f !== 'has_chat');
       const wantChat = state.filterFlags.includes('has_chat');
-      clips = clips.filter(c => {
+
+      filtered = filtered.filter(clip => {
         let match = false;
+
+        // Match flags
         if (realFlags.length > 0) {
-          const flags = (state.clipFlags[c.id] || [])
-            .filter(f => f.userId === state.userId)
-            .map(f => f.flag);
-          match = realFlags.some(ff => flags.includes(ff));
+          const flags = getClipUserFlags(clip.id);
+          if (realFlags.some(f => flags.includes(f))) match = true;
+        } else if (!wantChat) {
+          // if only flags filter active but no flags selected (strange case)
+          match = true;
         }
+
+        // Match chat
         if (wantChat) {
-          // Check if clip has comments in any playlist
-          match = match || Object.keys(state.playlistComments).some(key => {
-            return key.endsWith('::' + c.id) && state.playlistComments[key].length > 0;
-          });
+          const commentsDict = state.playlistComments || {};
+          const hasChat = Object.keys(commentsDict).some(k => k.endsWith('_' + clip.id) && commentsDict[k].length > 0);
+          if (realFlags.length > 0) {
+            // If both, both must match or is it OR? 
+            // Usually it's OR in this app for flags.
+            match = match || hasChat;
+          } else {
+            match = hasChat;
+          }
         }
+
         return match;
       });
     }
 
     // Sort by t_sec
-    clips.sort((a, b) => a.t_sec - b.t_sec);
-    return clips;
+    filtered.sort((a, b) => a.t_sec - b.t_sec);
+    return filtered;
   }
 
   function getClipUserFlags(clipId) {

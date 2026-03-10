@@ -360,7 +360,7 @@ const UI = (() => {
     // ═══ CLIP LIST (Analyze) ═══
     function renderAnalyzeClips() {
         const container = $('#analyze-clip-list');
-        const clips = AppState.get('clips');
+        const clips = AppState.getFilteredClips();
         const currentClipId = AppState.get('currentClipId');
 
         container.innerHTML = '';
@@ -381,28 +381,18 @@ const UI = (() => {
 
             const isRival = tag && tag.row === 'bottom';
             const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
-            const flagBtnHtml = buildFlagButton(clip.id, flags);
             const urlParams = new URLSearchParams(window.location.search);
             const isReadOnly = urlParams.get('mode') === 'view';
 
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
 
-            let playlistBtnHtml = '';
-            if (!isReadOnly) {
-                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
-            }
-
-            const exportBtnHtml = VideoPlayer.getType() === 'local'
-                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
-                : '';
-
             el.innerHTML = `
         <span class="${badgeClass}">${tagLabel}</span>
         <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
         <span class="clip-item-spacer"></span>
-        ${flagBtnHtml}
-        ${playlistBtnHtml}
-        ${exportBtnHtml}
+        ${buildFlagButton(clip.id, flags)}
+        ${!isReadOnly ? `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>` : ''}
+        ${VideoPlayer.getType() === 'local' ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>` : ''}
         <button class="clip-action-icon clip-delete-btn" data-clip-id="${clip.id}" title="Eliminar clip">🗑️</button>
       `;
 
@@ -490,50 +480,37 @@ const UI = (() => {
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
 
-            let playlistBtnHtml = '';
-            const urlParams = new URLSearchParams(window.location.search);
-            const isReadOnly = urlParams.get('mode') === 'view';
-            if (!isReadOnly) {
-                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
-            }
-
-            const exportBtnHtml = VideoPlayer.getType() === 'local'
-                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
-                : '';
-
-            const flagBtnHtml = buildFlagButton(clip.id, flags);
-
-            // Define the static icons so we don't throw ReferenceErrors
-            const flagIcon = flags.length > 0 ? `<span title="${flags.map(f => FLAG_LABELS[f]).join(', ')}">🚩</span>` : '';
-            const chatIcon = hasChat ? '💬' : '';
+            const flagIcon = flags.length > 0 ? `<span class="clip-list-icon" title="${flags.map(f => FLAG_LABELS[f]).join(', ')}">🚩</span>` : '';
+            const chatIcon = hasChat ? `<span class="clip-list-icon chat-active" title="Tiene chat">💬</span>` : '';
+            const playlistIcon = `<span class="clip-list-icon playlist-add-trigger" data-clip-id="${clip.id}" title="Agregar a playlist">📋</span>`;
 
             el.innerHTML = `
-                <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
-                <div class="clip-item-name-group" style="display:flex; flex-direction:column; min-width:0;">
+                <div class="clip-check-cell">
+                    <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
+                </div>
+                <div class="clip-info-cell">
                     <span class="clip-item-name">${tagLabel}</span>
-                    <span class="clip-time" style="font-size: 0.7rem; color: var(--text-muted);">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
+                    <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
                 </div>
-                <!-- Action row (only visible on hover/active via CSS) -->
-                <div class="clip-actions-row">
-                    ${flagBtnHtml}
-                    ${playlistBtnHtml}
-                    ${exportBtnHtml}
-                </div>
-                <!-- Static icons -->
-                <div class="clip-flags-display">
-                  <div class="clip-item-icons">
+                <div class="clip-icons-cell">
                     ${flagIcon}
-                    <span class="static-chat-icon${hasChat ? ' has-content' : ''}">💬</span>
-                    <span class="static-playlist-icon">📋</span>
-                  </div>
+                    ${chatIcon}
+                    ${playlistIcon}
                 </div>
             `;
 
             el.addEventListener('click', (e) => {
-                if (e.target.classList.contains('clip-item-check')) return;
+                if (e.target.closest('.clip-check-cell')) return;
+
+                // Allow clicking icons for their actions
+                if (e.target.classList.contains('playlist-add-trigger')) {
+                    AppState.togglePlaylistWindow(clip.id);
+                    return;
+                }
+
                 AppState.setCurrentClip(clip.id);
                 VideoPlayer.playClip(clip.start_sec, clip.end_sec);
-                updateViewActionBar(); // Show/Update the new bar
+                updateViewActionBar();
             });
 
             container.appendChild(el);
@@ -541,7 +518,8 @@ const UI = (() => {
 
         // Checkbox handlers
         container.querySelectorAll('.clip-item-check').forEach(cb => {
-            cb.addEventListener('change', () => {
+            cb.addEventListener('change', (e) => {
+                e.stopPropagation();
                 const cid = cb.dataset.clipId;
                 if (cb.checked) _selectedClipIds.add(cid);
                 else _selectedClipIds.delete(cid);
@@ -554,30 +532,43 @@ const UI = (() => {
     }
 
     function updateViewActionBar() {
-        const clipId = AppState.get('currentClipId');
         const actionBar = $('#view-action-bar');
+        if (!actionBar) return;
 
-        if (!clipId) {
+        const mode = AppState.get('mode');
+        const clipId = AppState.get('currentClipId');
+
+        if (mode !== 'view' || !clipId) {
             actionBar.classList.add('hidden');
             return;
         }
 
-        const flagsContainer = $('#view-inline-flags');
+        const clips = AppState.getFilteredClips();
+        const clip = clips.find(c => c.id === clipId);
+        if (!clip) {
+            actionBar.classList.add('hidden');
+            return;
+        }
+
+        const tag = AppState.getTagType(clip.tag_type_id);
+        const clipNum = AppState.getClipNumber(clip);
+        const flags = AppState.getClipUserFlags(clipId);
+
+        $('#view-active-clip-name').textContent = tag ? `${tag.label} ${clipNum}` : 'Sin nombre';
+        $('#view-active-clip-time').textContent = `${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}`;
+
+        const flagsContainer = $('#view-active-clip-flags');
         if (flagsContainer) {
-            const allFlags = ['bueno', 'acorregir', 'duda', 'importante'];
-            const currentFlags = AppState.getClipUserFlags(clipId);
             flagsContainer.innerHTML = '';
-            allFlags.forEach(flag => {
-                const isActive = currentFlags.includes(flag);
+            UI_FLAGS.forEach(f => {
                 const btn = document.createElement('button');
-                btn.className = `flag-inline-btn ${isActive ? 'active' : ''}`;
-                btn.innerHTML = FLAG_EMOJI[flag];
-                btn.title = FLAG_LABELS[flag];
-                btn.addEventListener('click', (e) => {
+                btn.className = 'view-flag-btn' + (flags.includes(f) ? ' active' : '');
+                btn.textContent = FLAG_EMOJI[f];
+                btn.title = FLAG_LABELS[f];
+                btn.onclick = (e) => {
                     e.stopPropagation();
-                    AppState.toggleFlag(clipId, flag);
-                    updateViewActionBar();
-                });
+                    AppState.toggleFlag(clipId, f);
+                };
                 flagsContainer.appendChild(btn);
             });
         }
@@ -1080,12 +1071,19 @@ const UI = (() => {
             panelAnalyze.classList.remove('hidden');
             panelView.classList.add('hidden');
             tagBar.classList.remove('hidden');
-            const actionBar = $('#view-action-bar');
-            if (actionBar) actionBar.classList.add('hidden');
+            // Hide View action bar explicitly
+            const viewBar = document.getElementById('view-action-bar');
+            if (viewBar) viewBar.classList.add('hidden');
         } else { // mode === 'view'
             panelAnalyze.classList.add('hidden');
             panelView.classList.remove('hidden');
             tagBar.classList.add('hidden');
+            // Show only if there's a clip
+            const viewBar = document.getElementById('view-action-bar');
+            if (viewBar) {
+                const hasClip = !!AppState.get('currentClipId');
+                viewBar.classList.toggle('hidden', !hasClip);
+            }
         }
         updateClipEditControls();
 

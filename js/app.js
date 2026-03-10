@@ -1287,6 +1287,15 @@
 
         // Render initial UI
         UI.refreshAll();
+
+        // ════ Robust Playhead Loop ════
+        // Forces UI.updateClipPlayhead even if VideoPlayer events miss
+        setInterval(() => {
+            const mode = AppState.get('mode');
+            if (mode === 'view' && typeof UI.updateClipPlayhead === 'function') {
+                UI.updateClipPlayhead();
+            }
+        }, 100);
     }
 
     init();
