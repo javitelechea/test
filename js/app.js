@@ -632,6 +632,64 @@
 
 
     // ═══════════════════════════════════════
+    // XML IMPORT / EXPORT
+    // ═══════════════════════════════════════
+
+    const btnExportXml = $('#btn-export-xml');
+    if (btnExportXml) {
+        btnExportXml.addEventListener('click', () => {
+            const xml = AppState.exportXML();
+            if (!xml) {
+                UI.toast('No hay datos para exportar o no seleccionaste un partido', 'error');
+                return;
+            }
+
+            const blob = new Blob([xml], { type: 'text/xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            const game = AppState.getCurrentGame();
+            const title = game && game.title ? game.title : 'proyecto';
+            a.href = url;
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.xml`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    const btnImportXml = $('#btn-import-xml');
+    const inputImportXml = $('#input-import-xml');
+    if (btnImportXml && inputImportXml) {
+        btnImportXml.addEventListener('click', () => {
+            // Must have a game selected to import clips into it
+            if (!AppState.get('currentGameId')) {
+                UI.toast('Primero creá o seleccioná un partido vacío adonde importar', 'error');
+                return;
+            }
+            inputImportXml.click();
+        });
+
+        inputImportXml.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const xmlString = ev.target.result;
+                const res = AppState.importXML(xmlString);
+                if (res !== false) {
+                    UI.toast(`¡Importado! ${res} clips agregados`, 'success');
+                } else {
+                    UI.toast('Error al leer el XML', 'error');
+                }
+            };
+            reader.readAsText(file);
+            inputImportXml.value = ''; // reset so we can upload same file again
+        });
+    }
+
+    // ═══════════════════════════════════════
     // SAVE / SHARE
     // ═══════════════════════════════════════
 

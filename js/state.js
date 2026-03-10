@@ -473,6 +473,157 @@ const AppState = (() => {
     return true;
   }
 
+  // ── XML Import / Export ──
+  function importXML(xmlString) {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlString, "application/xml");
+
+      const parserError = xmlDoc.querySelector("parsererror");
+      if (parserError) {
+        console.error("XML Parsing Error:", parserError.textContent);
+        return false;
+      }
+
+      // 1. Extract Rows (Tag Colors/Names)
+      const rows = xmlDoc.querySelectorAll("ROWS > row");
+      const codeToTagMap = {};
+
+      rows.forEach(row => {
+        const codeEl = row.querySelector("code");
+        if (!codeEl) return;
+        const code = codeEl.textContent.trim();
+
+        let existingTag = state.tagTypes.find(t => t.label === code);
+        if (!existingTag) {
+          existingTag = {
+            id: 'tag_' + Date.now() + Math.random().toString(36).substring(2, 9),
+            label: code,
+            pre_sec: 5,
+            post_sec: 5,
+            row: 'top' // default
+          };
+          // Rough heuristic for rival vs top based on name (e.g., LEUV vs DARI)
+          // But since we can't be sure, default top. 
+          state.tagTypes.push(existingTag);
+        }
+        codeToTagMap[code] = existingTag.id;
+      });
+
+      // 2. Extract Instances (Clips)
+      const instances = xmlDoc.querySelectorAll("ALL_INSTANCES > instance");
+      let clipCount = 0;
+
+      instances.forEach(inst => {
+        const startEl = inst.querySelector("start");
+        const endEl = inst.querySelector("end");
+        const codeEl = inst.querySelector("code");
+
+        if (!startEl || !endEl || !codeEl) return;
+
+        const code = codeEl.textContent.trim();
+        let tagId = codeToTagMap[code];
+
+        // If instance has a code not defined in rows, create tag dynamically
+        if (!tagId) {
+          let existingTag = state.tagTypes.find(t => t.label === code);
+          if (!existingTag) {
+            existingTag = {
+              id: 'tag_' + Date.now() + Math.random().toString(36).substring(2, 9),
+              label: code,
+              pre_sec: 5,
+              post_sec: 5,
+              row: 'top'
+            };
+            state.tagTypes.push(existingTag);
+          }
+          codeToTagMap[code] = existingTag.id;
+          tagId = existingTag.id;
+        }
+
+        const startSec = parseFloat(startEl.textContent) || 0;
+        const endSec = parseFloat(endEl.textContent) || 0;
+
+        // Add clip
+        const clip = {
+          id: 'clip_' + Date.now() + Math.random().toString(36).substring(2, 9),
+          game_id: state.currentGameId,
+          tag_type_id: tagId,
+          t_sec: startSec,
+          start_sec: startSec,
+          end_sec: endSec
+        };
+        state.clips.push(clip);
+        clipCount++;
+      });
+
+      emit('tagTypesUpdated');
+      emit('clipsUpdated');
+      // Add trace to activity log
+      addActivity('xml_import', { count: clipCount });
+
+      return clipCount;
+
+    } catch (e) {
+      console.error('Error importing XML:', e);
+      return false;
+    }
+  }
+
+  function exportXML() {
+    const gameId = state.currentGameId;
+    if (!gameId) return null;
+
+    // Filter clips for current game
+    const gameClips = state.clips.filter(c => c.game_id === gameId);
+
+    // Determine which tags are used and present
+    const usedTagIds = new Set(gameClips.map(c => c.tag_type_id));
+    const usedTags = state.tagTypes.filter(t => usedTagIds.has(t.id));
+
+    let xml = `<?xml version="1.0" encoding="utf-8"?>\n<file>\n`;
+
+    // --- ALL_INSTANCES ---
+    xml += `<ALL_INSTANCES>\n`;
+    gameClips.forEach((clip, index) => {
+      const tag = state.tagTypes.find(t => t.id === clip.tag_type_id);
+      const code = tag ? tag.label : 'Unknown';
+
+      xml += `  <instance>\n`;
+      xml += `    <ID>${index + 1}</ID>\n`;
+      xml += `    <start>${clip.start_sec}</start>\n`;
+      xml += `    <end>${clip.end_sec}</end>\n`;
+      xml += `    <code>${code}</code>\n`;
+      xml += `  </instance>\n`;
+    });
+    xml += `</ALL_INSTANCES>\n`;
+
+    // --- ROWS ---
+    xml += `<ROWS>\n`;
+    usedTags.forEach(tag => {
+      // Default color if custom colors are implemented later
+      // Using generic neutral/team colors for XML structure
+      let r = 65535, g = 65535, b = 65535;
+      if (tag.row === 'bottom') {
+        r = 65535; g = 20000; b = 20000; // Red-ish for rival
+      } else {
+        r = 20000; g = 20000; b = 65535; // Blue-ish for own team
+      }
+
+      xml += `  <row>\n`;
+      xml += `    <code>${tag.label}</code>\n`;
+      xml += `    <R>${r}</R>\n`;
+      xml += `    <G>${g}</G>\n`;
+      xml += `    <B>${b}</B>\n`;
+      xml += `  </row>\n`;
+    });
+    xml += `</ROWS>\n`;
+
+    xml += `</file>`;
+
+    return xml;
+  }
+
   return {
     on, off, emit, get, init,
     getCurrentGame, getCurrentClip, getTagType,
@@ -488,6 +639,7 @@ const AppState = (() => {
     togglePanel, toggleFocusView, navigateClip,
     saveToCloud, loadFromCloud,
     addComment, getComments, getClipNumber,
-    addActivity, getActivityLog
+    addActivity, getActivityLog,
+    importXML, exportXML
   };
 })();
