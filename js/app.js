@@ -112,7 +112,7 @@
         UI.renderViewSources();
         UI.updateClipEditControls();
         if (game) {
-            YTPlayer.loadVideo(game.youtube_video_id);
+            VideoPlayer.loadVideo(game.youtube_video_id);
         }
     });
 
@@ -240,26 +240,54 @@
         });
     });
 
-    $('#btn-save-game').addEventListener('click', () => {
+    // Modal Video Type Toggle
+    document.querySelectorAll('input[name="video-type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isLocal = e.target.value === 'local';
+            $('#group-yt-id').classList.toggle('hidden', isLocal);
+            $('#group-local-file').classList.toggle('hidden', !isLocal);
+        });
+    });
+
+    $('#btn-save-game').addEventListener('click', async () => {
         const title = $('#input-game-title').value.trim();
-        const rawYtInput = $('#input-youtube-id').value.trim();
+        const videoType = document.querySelector('input[name="video-type"]:checked').value;
+        let source = '';
+
         if (!title) { UI.toast('Ingresá un título', 'error'); return; }
-        if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
 
-        const ytId = extractYouTubeId(rawYtInput);
-        if (!ytId) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
+        if (videoType === 'youtube') {
+            const rawYtInput = $('#input-youtube-id').value.trim();
+            if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
+            source = extractYouTubeId(rawYtInput);
+            if (!source) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
+        } else {
+            const fileInput = $('#input-local-file');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                UI.toast('Seleccioná un archivo de video', 'error');
+                return;
+            }
+            const file = fileInput.files[0];
+            source = URL.createObjectURL(file);
+        }
 
-        // Start a fresh project — clear old project's ID from State
+        // Start a fresh project
         AppState.clearProject();
         DemoData.clear();
 
-        const game = AppState.addGame(title, ytId);
+        const game = AppState.addGame(title, source);
+        // Add a flag to distinguish source type (optional but helpful)
+        game.videoType = videoType;
+
         AppState.setCurrentGame(game.id);
         UI.hideModal('modal-new-game');
+
+        // Reset form
         $('#input-game-title').value = '';
         $('#input-youtube-id').value = '';
+        $('#input-local-file').value = '';
 
-        $('#btn-share-project').style.display = 'none'; // Hide share until saved
+        $('#btn-share-project').style.display = 'none';
 
         UI.toast(`Proyecto creado: ${title}`, 'success');
         UI.refreshAll();
@@ -439,7 +467,7 @@
                         UI.refreshAll();
                         const game = AppState.getCurrentGame();
                         if (game && game.youtube_video_id) {
-                            YTPlayer.loadVideo(game.youtube_video_id);
+                            VideoPlayer.loadVideo(game.youtube_video_id);
                         }
                         const url = FirebaseData.getShareUrl(p.id);
                         window.history.replaceState({}, '', url);
@@ -495,13 +523,13 @@
     $('#btn-prev-clip').addEventListener('click', () => {
         AppState.navigateClip('prev');
         const clip = AppState.getCurrentClip();
-        if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
+        if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
     });
 
     $('#btn-next-clip').addEventListener('click', () => {
         AppState.navigateClip('next');
         const clip = AppState.getCurrentClip();
-        if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
+        if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
     });
 
     // ═══════════════════════════════════════
@@ -515,11 +543,11 @@
         // Spacebar: exclusively toggle play/pause to avoid accidental button clicks
         if (e.key === ' ') {
             e.preventDefault();
-            const playerState = YTPlayer.getPlayerState();
+            const playerState = VideoPlayer.getPlayerState();
             if (playerState === 1) { // playing
-                YTPlayer.pause();
+                VideoPlayer.pause();
             } else {
-                YTPlayer.play();
+                VideoPlayer.play();
             }
             return;
         }
@@ -530,14 +558,14 @@
         if (mode === 'analyze') {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                const t = YTPlayer.getCurrentTime();
-                YTPlayer.seekTo(Math.max(0, t - 5));
+                const t = VideoPlayer.getCurrentTime();
+                VideoPlayer.seekTo(Math.max(0, t - 5));
                 return;
             }
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                const t = YTPlayer.getCurrentTime();
-                YTPlayer.seekTo(t + 5);
+                const t = VideoPlayer.getCurrentTime();
+                VideoPlayer.seekTo(t + 5);
                 return;
             }
 
@@ -557,14 +585,14 @@
                 e.preventDefault();
                 AppState.navigateClip('prev');
                 const clip = AppState.getCurrentClip();
-                if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
+                if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
                 return;
             }
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 AppState.navigateClip('next');
                 const clip = AppState.getCurrentClip();
-                if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
+                if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
                 return;
             }
 
@@ -933,7 +961,7 @@
 
         // Init YouTube Player safely (handles file:// origin errors cleanly)
         try {
-            await YTPlayer.init();
+            await VideoPlayer.init();
         } catch (e) {
             console.warn('YouTube Player no se pudo iniciar inmediatamente (común en file://).', e);
         }
@@ -976,7 +1004,11 @@
 
                 const game = AppState.getCurrentGame();
                 if (game && game.youtube_video_id) {
-                    YTPlayer.loadVideo(game.youtube_video_id);
+                    // Detect if source is a local blob or a potential YouTube ID
+                    const isYT = !game.youtube_video_id.startsWith('blob:') &&
+                        !game.youtube_video_id.startsWith('data:') &&
+                        game.youtube_video_id.length < 30; // 30 is a safe margin for YT IDs/links
+                    VideoPlayer.loadVideo(game.youtube_video_id, isYT ? 'youtube' : 'local');
                 }
 
                 if (modeFromUrl === 'view') {

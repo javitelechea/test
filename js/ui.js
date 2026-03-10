@@ -110,7 +110,7 @@ const UI = (() => {
                     toast('Primero seleccioná un partido', 'error');
                     return;
                 }
-                const tSec = Math.round(YTPlayer.getCurrentTime());
+                const tSec = Math.round(VideoPlayer.getCurrentTime());
                 const clip = AppState.addClip(tag.id, tSec);
                 if (clip) {
                     btn.classList.add('tag-flash');
@@ -362,12 +362,17 @@ const UI = (() => {
                 playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
             }
 
+            const exportBtnHtml = VideoPlayer.getType() === 'local'
+                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
+                : '';
+
             el.innerHTML = `
         <span class="${badgeClass}">${tagLabel}</span>
         <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
         <span class="clip-item-spacer"></span>
         ${flagBtnHtml}
         ${playlistBtnHtml}
+        ${exportBtnHtml}
         <button class="clip-action-icon clip-delete-btn" data-clip-id="${clip.id}" title="Eliminar clip">🗑️</button>
       `;
 
@@ -376,7 +381,7 @@ const UI = (() => {
                 if (e.target.closest('.flag-popover')) return;
                 if (e.target.closest('.clip-action-icon')) return;
                 AppState.setCurrentClip(clip.id);
-                YTPlayer.playClip(clip.start_sec, clip.end_sec);
+                VideoPlayer.playClip(clip.start_sec, clip.end_sec);
             });
 
             container.appendChild(el);
@@ -399,6 +404,15 @@ const UI = (() => {
                 e.stopPropagation();
                 AppState.deleteClip(btn.dataset.clipId);
                 toast('Clip eliminado', 'success');
+            });
+        });
+
+        // Export buttons
+        container.querySelectorAll('.clip-export-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clip = AppState.get('clips').find(c => c.id === btn.dataset.clipId);
+                if (clip) ExportTool.exportClip(clip);
             });
         });
     }
@@ -445,6 +459,10 @@ const UI = (() => {
                 playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
             }
 
+            const exportBtnHtml = VideoPlayer.getType() === 'local'
+                ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>`
+                : '';
+
             el.innerHTML = `
         <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
         <span class="${badgeClass}">${tagLabel}</span>
@@ -454,6 +472,7 @@ const UI = (() => {
         ${chatBtnHtml}
         ${drawBtnHtml}
         ${playlistBtnHtml}
+        ${exportBtnHtml}
       `;
 
             el.addEventListener('click', (e) => {
@@ -464,7 +483,7 @@ const UI = (() => {
                 if (e.target.closest('.clip-chat-btn')) return;
                 if (e.target.closest('.clip-action-icon')) return;
                 AppState.setCurrentClip(clip.id);
-                YTPlayer.playClip(clip.start_sec, clip.end_sec);
+                VideoPlayer.playClip(clip.start_sec, clip.end_sec);
             });
 
             container.appendChild(el);
@@ -493,6 +512,15 @@ const UI = (() => {
 
         // Chat handlers
         attachChatHandlers(container, () => renderViewClips());
+
+        // Export buttons
+        container.querySelectorAll('.clip-export-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clip = AppState.get('clips').find(c => c.id === btn.dataset.clipId);
+                if (clip) ExportTool.exportClip(clip);
+            });
+        });
 
         updateSelectionBar();
     }
@@ -826,7 +854,7 @@ const UI = (() => {
                 AppState.setPlaylistFilter(plId);
                 AppState.setMode('view');
                 AppState.setCurrentClip(clipId);
-                YTPlayer.playClip(startSec, endSec);
+                VideoPlayer.playClip(startSec, endSec);
                 dropdown.style.display = 'none';
             });
         });
