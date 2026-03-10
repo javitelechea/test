@@ -652,7 +652,10 @@
             const title = game && game.title ? game.title : 'proyecto';
             a.href = url;
             a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.xml`;
+
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
 
             URL.revokeObjectURL(url);
         });

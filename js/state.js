@@ -501,7 +501,8 @@ const AppState = (() => {
             label: code,
             pre_sec: 5,
             post_sec: 5,
-            row: 'top' // default
+            row: 'top', // default
+            isHidden: true
           };
           // Rough heuristic for rival vs top based on name (e.g., LEUV vs DARI)
           // But since we can't be sure, default top. 
@@ -533,7 +534,8 @@ const AppState = (() => {
               label: code,
               pre_sec: 5,
               post_sec: 5,
-              row: 'top'
+              row: 'top',
+              isHidden: true
             };
             state.tagTypes.push(existingTag);
           }

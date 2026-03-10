@@ -121,7 +121,7 @@ const UI = (() => {
             return btn;
         }
 
-        tags.forEach(tag => {
+        tags.filter(t => !t.isHidden).forEach(tag => {
             if (tag.row === 'bottom') {
                 containerBottom.appendChild(createTagBtn(tag));
             } else {
@@ -545,7 +545,7 @@ const UI = (() => {
             AppState.clearTagFilters();
         };
 
-        tags.forEach(tag => {
+        tags.filter(t => !t.isHidden).forEach(tag => {
             const btn = document.createElement('button');
             const isRival = tag.row === 'bottom';
             const isActive = activeTagIds.includes(tag.id);
