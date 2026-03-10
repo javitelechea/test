@@ -958,7 +958,19 @@
                 } else {
                     const games = AppState.get('games');
                     if (games.length > 0) {
-                        AppState.setCurrentGame(games[0].id);
+                        // For backward compatibility with older multi-game projects, 
+                        // try to auto-select the game with the most clips rather than just [0]
+                        const allClips = AppState.get('clips');
+                        let bestGameId = games[0].id;
+                        let maxClips = -1;
+                        games.forEach(g => {
+                            const count = allClips.filter(c => c.game_id === g.id).length;
+                            if (count > maxClips) {
+                                maxClips = count;
+                                bestGameId = g.id;
+                            }
+                        });
+                        AppState.setCurrentGame(bestGameId);
                     }
                 }
 
