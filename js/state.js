@@ -157,8 +157,8 @@ const AppState = (() => {
     emit('clipChanged', getCurrentClip());
   }
 
-  function addGame(title, youtubeVideoId) {
-    const game = DemoData.createGame(title, youtubeVideoId);
+  function addGame(title, youtubeVideoId, videoType = 'youtube') {
+    const game = DemoData.createGame(title, youtubeVideoId, videoType);
     state.games = DemoData.getGames();
     emit('gamesUpdated', state.games);
     return game;
@@ -487,6 +487,7 @@ const AppState = (() => {
     const data = {
       title: game ? game.title : 'Sin título',
       youtubeVideoId: game ? game.youtube_video_id : '',
+      videoType: game ? (game.videoType || 'youtube') : 'youtube',
       tagTypes: state.tagTypes,
       games: state.games,
       clips: state.clips,

@@ -37,6 +37,7 @@ const FirebaseData = (() => {
         const doc = {
             title: data.title || 'Sin título',
             youtubeVideoId: data.youtubeVideoId || '',
+            videoType: data.videoType || 'youtube',
             tagTypes: data.tagTypes || [],
             games: data.games || [],
             clips: data.clips || [],
@@ -163,11 +164,61 @@ const FirebaseData = (() => {
                 title: res.data.title || 'Sin título',
                 updatedAt: res.data.updatedAt?.toDate?.() || null,
                 youtubeVideoId: res.data.youtubeVideoId || '',
+                videoType: res.data.videoType || 'youtube',
                 isShared: res.shared
             })).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         } catch (err) {
             console.error('Error listing projects:', err);
             return [];
+        }
+    }
+
+    async function renameProject(projectId, newTitle) {
+        if (!db || !projectId) return false;
+        try {
+            await db.collection('projects').doc(projectId).update({
+                title: newTitle,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return true;
+        } catch (err) {
+            console.error('Error renaming project:', err);
+            return false;
+        }
+    }
+
+    async function duplicateProject(projectId) {
+        if (!db || !projectId) return null;
+        try {
+            const original = await loadProject(projectId);
+            if (!original) return null;
+
+            const newData = { ...original };
+            delete newData.id;
+            newData.title = (original.title || 'Sin título') + ' (copia)';
+            newData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            newData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+            const ref = await db.collection('projects').add(newData);
+            return ref.id;
+        } catch (err) {
+            console.error('Error duplicating project:', err);
+            return null;
+        }
+    }
+
+    async function updateProjectVideo(projectId, source, type) {
+        if (!db || !projectId) return false;
+        try {
+            await db.collection('projects').doc(projectId).update({
+                youtubeVideoId: source,
+                videoType: type,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return true;
+        } catch (err) {
+            console.error('Error updating project video:', err);
+            return false;
         }
     }
 
@@ -177,9 +228,12 @@ const FirebaseData = (() => {
         listProjects,
         getShareUrl,
         getProjectIdFromUrl,
-        getGameIdFromUrl,       // ← ESTA ES LA QUE FALTA
+        getGameIdFromUrl,
         getPlaylistIdFromUrl,
         addProjectLocally,
-        removeProjectLocally
+        removeProjectLocally,
+        renameProject,
+        duplicateProject,
+        updateProjectVideo
     };
 })();

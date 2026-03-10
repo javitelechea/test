@@ -299,16 +299,17 @@
             }
         }
 
-        AppState.renameGame(_editingProjectId, title);
-        AppState.updateGameVideo(_editingProjectId, source, videoType);
+        await FirebaseData.renameProject(_editingProjectId, title);
+        await FirebaseData.updateProjectVideo(_editingProjectId, source, videoType);
 
         UI.hideModal('modal-edit-video');
         UI.toast('Proyecto actualizado', 'success');
 
-        // If current game was edited, refresh player
-        if (AppState.get('currentGameId') === _editingProjectId) {
+        // If current game was edited, refresh current state
+        if (AppState.get('currentProjectId') === _editingProjectId) {
+            await AppState.loadFromCloud(_editingProjectId);
+            UI.refreshAll();
             VideoPlayer.loadVideo(source, videoType);
-            UI.updateProjectTitle();
         }
 
         $('#btn-my-projects').click(); // Refresh projects list
@@ -341,9 +342,7 @@
         AppState.clearProject();
         DemoData.clear();
 
-        const game = AppState.addGame(title, source);
-        // Add a flag to distinguish source type (optional but helpful)
-        game.videoType = videoType;
+        const game = AppState.addGame(title, source, videoType);
 
         AppState.setCurrentGame(game.id);
         UI.hideModal('modal-new-game');
@@ -498,6 +497,7 @@
                     <div class="project-title" style="font-weight:500;font-size:0.9rem;">${p.title}</div>
                     <div class="project-date" style="font-size:0.75rem;color:var(--text-muted);">${dateStr}</div>
                 `;
+                info.addEventListener('click', () => loadBtn.click());
 
                 const actions = document.createElement('div');
                 actions.className = 'project-actions';
@@ -510,11 +510,11 @@
                     renameBtn.className = 'btn btn-xs btn-ghost';
                     renameBtn.innerHTML = '✏️';
                     renameBtn.title = 'Renombrar';
-                    renameBtn.addEventListener('click', (e) => {
+                    renameBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         const newTitle = prompt('Nuevo nombre:', p.title);
                         if (newTitle && newTitle.trim()) {
-                            AppState.renameGame(p.id, newTitle.trim());
+                            await FirebaseData.renameProject(p.id, newTitle.trim());
                             UI.toast('Proyecto renombrado', 'success');
                             $('#btn-my-projects').click(); // Refresh list
                         }
@@ -526,11 +526,19 @@
                     duplicateBtn.className = 'btn btn-xs btn-ghost';
                     duplicateBtn.innerHTML = '👯';
                     duplicateBtn.title = 'Duplicar';
-                    duplicateBtn.addEventListener('click', (e) => {
+                    duplicateBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
-                        AppState.duplicateGame(p.id);
-                        UI.toast('Proyecto duplicado', 'success');
-                        $('#btn-my-projects').click(); // Refresh list
+                        UI.toast('Duplicando...', '');
+                        const newId = await FirebaseData.duplicateProject(p.id);
+                        if (newId) {
+                            FirebaseData.addProjectLocally(newId, false);
+                            UI.toast('Proyecto duplicado', 'success');
+                            setTimeout(() => {
+                                $('#btn-my-projects').click(); // Refresh list
+                            }, 1000);
+                        } else {
+                            UI.toast('Error al duplicar', 'error');
+                        }
                     });
                     actions.appendChild(duplicateBtn);
 
@@ -590,7 +598,7 @@
                         UI.refreshAll();
                         const game = AppState.getCurrentGame();
                         if (game && game.youtube_video_id) {
-                            VideoPlayer.loadVideo(game.youtube_video_id);
+                            VideoPlayer.loadVideo(game.youtube_video_id, game.videoType || 'youtube');
                         }
                         const url = FirebaseData.getShareUrl(p.id);
                         window.history.replaceState({}, '', url);

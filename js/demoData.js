@@ -95,11 +95,12 @@ const DemoData = (() => {
 
     function getGames() { return [...games]; }
 
-    function createGame(title, youtubeVideoId) {
+    function createGame(title, youtubeVideoId, videoType = 'youtube') {
         const g = {
             id: uuid(),
             title,
             youtube_video_id: youtubeVideoId,
+            videoType: videoType,
             created_by: 'demo-user-001',
             created_at: new Date().toISOString()
         };
@@ -120,8 +121,7 @@ const DemoData = (() => {
         const original = games.find(x => x.id === gameId);
         if (!original) return null;
 
-        const newGame = createGame(original.title + ' (copia)', original.youtube_video_id);
-        if (original.videoType) newGame.videoType = original.videoType;
+        const newGame = createGame(original.title + ' (copia)', original.youtube_video_id, original.videoType || 'youtube');
 
         // Clone clips
         const gameClips = clips.filter(c => c.game_id === gameId);
