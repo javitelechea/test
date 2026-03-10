@@ -955,6 +955,11 @@
 
                 if (gameIdFromUrl) {
                     AppState.setCurrentGame(gameIdFromUrl);
+                } else {
+                    const games = AppState.get('games');
+                    if (games.length > 0) {
+                        AppState.setCurrentGame(games[0].id);
+                    }
                 }
 
                 const game = AppState.getCurrentGame();
