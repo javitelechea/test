@@ -86,7 +86,8 @@ const UI = (() => {
 
             btn.className = 'tag-btn' + (isRival ? ' tag-btn-rival' : '') +
                 (_tagEditMode ? ' tag-edit-mode' : '') +
-                (_editingTagId === tag.id ? ' tag-editing' : '');
+                (_editingTagId === tag.id ? ' tag-editing' : '') +
+                ` tag-${tag.key}`;
             btn.dataset.tagId = tag.id;
 
             if (hotkey) {
@@ -376,7 +377,8 @@ const UI = (() => {
             const clipNum = AppState.getClipNumber(clip);
             const flags = AppState.getClipUserFlags(clip.id);
             const el = document.createElement('div');
-            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
+            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '') +
+                (tag ? ` tag-${tag.key}` : '');
             el.dataset.clipId = clip.id;
 
             const isRival = tag && tag.row === 'bottom';
@@ -474,7 +476,8 @@ const UI = (() => {
 
             const el = document.createElement('div');
             el.className = 'view-clip-item' + (clip.id === currentClipId ? ' active' : '');
-            if (hasChat) el.classList.add('has-chat-activity');
+            if (hasChat) el.classList.add('has-chat');
+            if (tag) el.classList.add(`tag-${tag.key}`);
             el.dataset.clipId = clip.id;
 
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
@@ -721,7 +724,8 @@ const UI = (() => {
             const btn = document.createElement('button');
             const isRival = tag.row === 'bottom';
             const isActive = activeTagIds.includes(tag.id);
-            btn.className = 'source-btn' + (isActive ? ' active' : '') + (isRival ? ' source-btn-rival' : '');
+            btn.className = 'source-btn' + (isActive ? ' active' : '') +
+                (isRival ? ' source-btn-rival' : '') + ` tag-${tag.key}`;
             btn.dataset.source = tag.id;
             btn.textContent = tag.label;
             btn.addEventListener('click', () => {

@@ -890,34 +890,7 @@ select {
   padding-right: 12px;
 }
 
-/* CLIP ITEM GRID (Homogeneous) */
-.view-clip-item {
-  display: grid;
-  grid-template-columns: 32px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--bg-elevated);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  margin-bottom: 2px;
-  border-radius: var(--r-md);
-  cursor: pointer;
-  transition: background var(--tr-fast);
-  overflow: hidden;
-}
-
-.view-clip-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.view-clip-item.active {
-  background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.2), rgba(var(--primary-rgb), 0.05));
-  border-left: 3px solid var(--primary);
-}
-
-.view-clip-item.has-chat-activity {
-  background: rgba(var(--accent-rgb), 0.05);
-}
+/* CLIP ITEM GRID (Consolidated in later section) */
 
 .clip-check-cell {
   display: flex;
@@ -1235,9 +1208,16 @@ select {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  /* Allow scrolling of the entire sidebar content */
   padding: 44px var(--sp-md) var(--sp-md);
+  scrollbar-width: thin;
 }
+
+.panel-content::-webkit-scrollbar {
+  width: 4px;
+}
+
 
 .panel-section {
   margin-bottom: var(--sp-lg);
@@ -1396,11 +1376,141 @@ select {
 /* ═══════════════════════════════════════════
    CLIP LIST
    ═══════════════════════════════════════════ */
-.clip-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* ── Tag Specific Colors ── */
+.tag-salida {
+  background: rgba(52, 211, 153, 0.15) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
 }
+
+.tag-ataque {
+  background: rgba(52, 211, 153, 0.15) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+.tag-area {
+  background: rgba(52, 211, 153, 0.2) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+}
+
+.tag-contragolpe {
+  background: rgba(251, 191, 36, 0.15) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+}
+
+.tag-cc_at {
+  background: rgba(52, 211, 153, 0.1) !important;
+  color: #a7f3d0 !important;
+  border-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.tag-gol {
+  background: rgba(16, 185, 129, 0.25) !important;
+  color: #10b981 !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  font-weight: bold !important;
+}
+
+.tag-bloqueo {
+  background: rgba(96, 165, 250, 0.15) !important;
+  color: #93c5fd !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+.tag-defensa {
+  background: rgba(96, 165, 250, 0.15) !important;
+  color: #93c5fd !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+.tag-area_ec {
+  background: rgba(248, 113, 113, 0.15) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+.tag-contragolpe_ec {
+  background: rgba(248, 113, 113, 0.15) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+.tag-cc_def {
+  background: rgba(96, 165, 250, 0.1) !important;
+  color: #bfdbfe !important;
+  border-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.tag-gol_ec {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  font-weight: bold !important;
+}
+
+/* ── Source Filter Buttons ── */
+.source-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all var(--tr-fast);
+}
+
+.source-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-glow);
+}
+
+.source-btn.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Sidebar Clip Item overrides for View Mode */
+.view-clip-item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  transition: all var(--tr-fast);
+  cursor: pointer;
+}
+
+.view-clip-item:hover {
+  border-color: var(--accent-glow);
+  transform: translateX(4px);
+  background: var(--bg-hover);
+}
+
+.view-clip-item.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.view-clip-item.has-chat {
+  background: rgba(139, 92, 246, 0.08) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+
 
 .clip-item {
   display: flex;
