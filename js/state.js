@@ -194,6 +194,18 @@ const AppState = (() => {
     emit('clipChanged', clip);
   }
 
+  function updateClipAbsoluteBounds(clipId, startSec, endSec) {
+    const clip = state.clips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    clip.start_sec = Math.max(0, startSec);
+    clip.end_sec = Math.max(clip.start_sec + 1, endSec);
+
+    DemoData.updateClip(clipId, { start_sec: clip.start_sec, end_sec: clip.end_sec });
+    emit('clipsUpdated', state.clips);
+    emit('clipChanged', clip);
+  }
+
   function deleteClip(clipId) {
     DemoData.deleteClip(clipId);
     state.clips = DemoData.getClipsForGame(state.currentGameId);
@@ -220,6 +232,37 @@ const AppState = (() => {
     emit('playlistsUpdated', state.playlists);
   }
 
+  function removeClipFromPlaylist(playlistId, clipId) {
+    DemoData.removeClipFromPlaylist(playlistId, clipId);
+    state.playlistItems[playlistId] = DemoData.getPlaylistItems(playlistId);
+    emit('playlistsUpdated', state.playlists);
+    emit('viewFiltersChanged');
+  }
+
+  function renamePlaylist(playlistId, newName) {
+    const pl = state.playlists.find(p => p.id === playlistId);
+    if (pl) {
+      pl.name = newName;
+      // Also update in DemoData
+      const demoPlaylists = DemoData.getPlaylistsForGame(state.currentGameId);
+      const demoPl = demoPlaylists.find(p => p.id === playlistId);
+      if (demoPl) demoPl.name = newName;
+      emit('playlistsUpdated', state.playlists);
+    }
+  }
+
+  function deletePlaylist(playlistId) {
+    state.playlists = state.playlists.filter(p => p.id !== playlistId);
+    delete state.playlistItems[playlistId];
+    // Remove from DemoData
+    DemoData.deletePlaylist(playlistId);
+    if (state.activePlaylistId === playlistId) {
+      state.activePlaylistId = null;
+    }
+    emit('playlistsUpdated', state.playlists);
+    emit('viewFiltersChanged');
+  }
+
   function toggleFlag(clipId, flag) {
     const flags = getClipUserFlags(clipId);
     if (flags.includes(flag)) {
@@ -232,17 +275,13 @@ const AppState = (() => {
   }
 
   function toggleTagFilter(tagId) {
-    if (state.activeTagFilters.length === 1 && state.activeTagFilters[0] === tagId) {
-      // Same tag clicked again → deselect
-      state.activeTagFilters = [];
+    const idx = state.activeTagFilters.indexOf(tagId);
+    if (idx >= 0) {
+      // Already selected → remove it
+      state.activeTagFilters.splice(idx, 1);
     } else {
-      // Replace with this single tag
-      state.activeTagFilters = [tagId];
-    }
-    // Clear playlist when using tags (UNLESS locked)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (!(urlParams.get('mode') === 'view' && urlParams.get('playlist'))) {
-      state.activePlaylistId = null;
+      // Not selected → add it
+      state.activeTagFilters.push(tagId);
     }
 
     state.currentClipId = null;
@@ -260,13 +299,6 @@ const AppState = (() => {
 
   function clearTagFilters() {
     state.activeTagFilters = [];
-
-    // Do not clear playlist if locked
-    const urlParams = new URLSearchParams(window.location.search);
-    if (!(urlParams.get('mode') === 'view' && urlParams.get('playlist'))) {
-      state.activePlaylistId = null;
-    }
-
     state.currentClipId = null;
     state.currentClipIndex = -1;
     emit('viewFiltersChanged');
@@ -289,7 +321,6 @@ const AppState = (() => {
 
   function setPlaylistFilter(playlistId) {
     state.activePlaylistId = playlistId;
-    state.activeTagFilters = []; // playlists are exclusive
     state.currentClipId = null;
     state.currentClipIndex = -1;
     emit('viewFiltersChanged');
@@ -672,8 +703,8 @@ const AppState = (() => {
     getCurrentGame, getCurrentClip, getTagType,
     getFilteredClips, getClipUserFlags,
     setMode, setCurrentGame, setCurrentClip,
-    addGame, addClip, updateClipBounds, deleteClip,
-    addPlaylist, addClipToPlaylist,
+    addGame, addClip, updateClipBounds, updateClipAbsoluteBounds, deleteClip,
+    addPlaylist, addClipToPlaylist, removeClipFromPlaylist, renamePlaylist, deletePlaylist,
     toggleFlag,
     toggleTagFilter, removeTagFilter, clearTagFilters, clearAllFilters,
     setPlaylistFilter, clearPlaylistFilter,

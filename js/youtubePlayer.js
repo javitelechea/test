@@ -9,8 +9,10 @@ const YTPlayer = (() => {
     let _clipEndSec = null;
     let _pollTimer = null;
     let _onReadyCb = null;
+    let _clipAutoPaused = false;
 
     function init() {
+        console.log('YTPlayer wrapper: init() called');
         return new Promise((resolve) => {
             _onReadyCb = resolve;
 
@@ -24,6 +26,7 @@ const YTPlayer = (() => {
     }
 
     function _setupPlayer() {
+        console.log('YTPlayer wrapper: _setupPlayer executing');
         if (!document.getElementById('youtube-player')) {
             console.warn('YTPlayer: youtube-player element not found');
             return;
@@ -31,6 +34,7 @@ const YTPlayer = (() => {
 
         _videoPlayer = new VideoPlayer('youtube-player');
         _ready = true;
+        console.log('YTPlayer wrapper: player instance created, ready');
 
         if (_onReadyCb) {
             _onReadyCb();
@@ -38,7 +42,11 @@ const YTPlayer = (() => {
     }
 
     function loadVideo(videoId) {
-        if (!_ready || !_videoPlayer) return;
+        console.log('YTPlayer wrapper: loadVideo called with', videoId);
+        if (!_ready || !_videoPlayer) {
+            console.log('YTPlayer wrapper: NOT READY. _ready:', _ready, '_videoPlayer:', !!_videoPlayer);
+            return;
+        }
         _clipEndSec = null;
         _stopPoll();
 
@@ -64,12 +72,25 @@ const YTPlayer = (() => {
 
     function play() {
         if (!_ready || !_videoPlayer) return;
+        if (_clipAutoPaused) {
+            if (typeof AppState !== 'undefined') AppState.setCurrentClip(null);
+            _clipAutoPaused = false;
+        }
         _videoPlayer.play();
     }
 
     function pause() {
         if (!_ready || !_videoPlayer) return;
         _videoPlayer.pause();
+    }
+
+    function togglePlay() {
+        if (!_ready || !_videoPlayer) return;
+        if (_videoPlayer.isPlaying) {
+            pause();
+        } else {
+            play();
+        }
     }
 
     function getCurrentTime() {
@@ -95,17 +116,23 @@ const YTPlayer = (() => {
         _stopPoll();
     }
 
+    function clearAutoPause() {
+        _clipAutoPaused = false;
+    }
+
     function _startPoll() {
         _stopPoll();
+        _clipAutoPaused = false;
         _pollTimer = setInterval(() => {
             if (!_videoPlayer || _clipEndSec === null) { _stopPoll(); return; }
             const t = _videoPlayer.getCurrentTime();
-            if (t >= _clipEndSec) {
+            if (t >= _clipEndSec + 5) {
                 _videoPlayer.pause();
                 _clipEndSec = null;
+                _clipAutoPaused = true;
                 _stopPoll();
             }
-        }, 200);
+        }, 100);
     }
 
     function _stopPoll() {
@@ -116,5 +143,5 @@ const YTPlayer = (() => {
     function getPlayerState() { return -1; }
     function isReady() { return _ready; }
 
-    return { init, loadVideo, loadLocalVideo, seekTo, play, pause, getCurrentTime, getDuration, playClip, clearClipEnd, isReady, getPlayerState };
+    return { init, loadVideo, loadLocalVideo, seekTo, play, pause, togglePlay, getCurrentTime, getDuration, playClip, clearClipEnd, clearAutoPause, isReady, getPlayerState };
 })();

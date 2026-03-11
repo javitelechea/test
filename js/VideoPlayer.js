@@ -20,6 +20,7 @@ class VideoPlayer {
             this.type = 'youtube';
             return new Promise((resolve) => {
                 const initYT = () => {
+                    console.log('VideoPlayer: initYT executing for', videoData.id);
                     const el = document.createElement('div');
                     el.id = 'yt-player-target';
                     this.container.appendChild(el);
@@ -35,7 +36,10 @@ class VideoPlayer {
                             'playsinline': 1
                         },
                         events: {
-                            'onReady': () => resolve(),
+                            'onReady': () => {
+                                console.log('VideoPlayer: YT Player Ready');
+                                resolve();
+                            },
                             'onStateChange': (event) => {
                                 this.isPlaying = event.data === YT.PlayerState.PLAYING;
                             }
@@ -43,10 +47,27 @@ class VideoPlayer {
                     });
                 };
 
+                console.log('VideoPlayer: Checking for window.YT', !!window.YT);
                 if (window.YT && window.YT.Player) {
                     initYT();
                 } else {
-                    window.onYouTubeIframeAPIReady = initYT;
+                    console.log('VideoPlayer: Waiting for onYouTubeIframeAPIReady');
+                    const orig = window.onYouTubeIframeAPIReady;
+                    window.onYouTubeIframeAPIReady = () => {
+                        console.log('VideoPlayer: onYouTubeIframeAPIReady triggered');
+                        if (orig) orig();
+                        initYT();
+                    };
+
+                    // Load script if not already loading
+                    if (!document.getElementById('yt-iframe-api')) {
+                        console.log('VideoPlayer: Injecting YouTube IFrame API script');
+                        const tag = document.createElement('script');
+                        tag.id = 'yt-iframe-api';
+                        tag.src = 'https://www.youtube.com/iframe_api';
+                        const firstScriptTag = document.getElementsByTagName('script')[0];
+                        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+                    }
                 }
             });
         } else if (videoData.type === 'local') {

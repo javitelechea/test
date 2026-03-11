@@ -121,11 +121,54 @@
         <div id="timeline-progress" class="timeline-progress"></div>
         <div id="timeline-clips" class="timeline-clips"></div>
         <div id="timeline-playhead" class="timeline-playhead">
-          <span id="playhead-time" class="playhead-time">0:00</span>
+          <div id="playhead-time" class="playhead-time">0:00</div>
         </div>
       </div>
 
-      <!-- Tag rows + Clip edit controls (visible in analyze mode) -->
+      <!-- ═══ CLIP VIEW TOOLBAR (Visible only when a clip is selected) ═══ -->
+      <div id="clip-view-toolbar" class="clip-view-toolbar" style="display:none;">
+
+        <!-- Left: Clip Name and Flags -->
+        <div class="toolbar-section timing-controls" style="flex: 1; justify-content: flex-start;">
+          <span id="toolbar-clip-name"
+            style="font-weight: 600; color: #fff; margin-right: 15px; font-size: 0.95rem;"></span>
+          <span class="ctrl-separator" style="margin-right: 15px;">|</span>
+          <div class="clip-toolbar-flags">
+            <button class="flag-btn-mini" data-action="flag" data-flag="bueno">👍</button>
+            <button class="flag-btn-mini" data-action="flag" data-flag="acorregir">⚠️</button>
+            <button class="flag-btn-mini" data-action="flag" data-flag="duda">❓</button>
+            <button class="flag-btn-mini" data-action="flag" data-flag="importante">⭐</button>
+          </div>
+        </div>
+
+        <!-- Center: Playback Controls -->
+        <div class="toolbar-section" style="flex: 1; justify-content: center; gap: 15px;">
+          <button class="btn btn-outline" style="font-size: 1.2rem; padding: 2px 10px;" id="btn-clip-mark-in"
+            title="Fijar IN en este instante">[</button>
+          <button class="btn btn-ghost" style="font-size: 1.5rem; padding: 4px;" id="btn-clip-restart"
+            title="Volver al inicio del clip">⏪</button>
+          <button class="btn btn-ghost" style="font-size: 2rem; padding: 4px;" id="btn-clip-playpause"
+            title="Play/Pausa">⏯️</button>
+          <button class="btn btn-ghost" style="font-size: 1.5rem; padding: 4px;" id="btn-clip-next"
+            title="Siguiente clip">⏩</button>
+          <button class="btn btn-outline" style="font-size: 1.2rem; padding: 2px 10px;" id="btn-clip-mark-out"
+            title="Fijar OUT en este instante">]</button>
+        </div>
+
+        <!-- Right: Actions -->
+        <div class="toolbar-section" style="flex: 1; justify-content: flex-end; gap: 8px;">
+          <button class="btn btn-sm btn-primary" id="btn-clip-chat" style="gap: 5px;" title="Chat">💬 Chat</button>
+          <button class="btn btn-sm btn-primary" id="btn-clip-draw" style="gap: 5px;" title="Dibujar">🎨
+            Dibujar</button>
+          <span class="ctrl-separator">|</span>
+          <button class="btn btn-sm btn-ghost" style="color: var(--danger);" data-action="delete-clip"
+            title="Eliminar Clip">🗑️</button>
+          <button class="btn btn-sm btn-ghost" id="btn-clip-close" title="Salir de vista de clip"
+            style="font-size: 1.2rem; margin-left:8px;">✕</button>
+        </div>
+      </div>
+
+      <!-- Action area: Tag Buttons -->
       <div id="tag-bar" class="tag-bar hidden">
         <div class="tag-bar-header">
           <div class="tag-rows-wrap">
@@ -170,19 +213,6 @@
           </div>
         </div>
       </div>
-      <!-- Clip Edit Controls (visible in both modes when a clip is selected) -->
-      <div class="clip-edit-group" id="clip-edit-controls"
-        style="display:none; padding: 6px var(--sp-md); background: var(--bg-secondary); border-top: 1px solid var(--border);">
-        <span class="ctrl-label">IN:</span>
-        <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
-        <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
-        <span class="ctrl-separator">|</span>
-        <span class="ctrl-label">OUT:</span>
-        <button class="btn btn-xs btn-outline" data-action="out-minus">−1s</button>
-        <button class="btn btn-xs btn-outline" data-action="out-plus">+1s</button>
-        <span class="ctrl-separator">|</span>
-        <button class="btn btn-xs btn-danger" data-action="delete-clip">🗑️</button>
-      </div>
     </section>
 
     <!-- Side Panel -->
@@ -216,13 +246,27 @@
         <!-- Source selector: compact, collapsible -->
         <div class="panel-section panel-section-fixed" id="view-source-selector">
           <div class="source-selector">
-            <button class="source-btn active" data-source="all" id="src-all">Partido completo</button>
             <div class="source-group" id="source-group-tags">
               <button class="source-group-toggle" data-toggle="source-tags-list">
                 <span class="toggle-arrow">▸</span> Tags
               </button>
               <div id="source-tags-list" class="source-group-body collapsed">
-                <div id="source-tags"></div>
+                <input type="text" id="view-tag-search" class="source-search-input" placeholder="Buscar tag..." />
+                <div id="source-tags" class="tag-filter-grid"></div>
+              </div>
+            </div>
+            <div class="source-group" id="source-group-flags">
+              <button class="source-group-toggle" data-toggle="source-flags-list">
+                <span class="toggle-arrow">▸</span> Flags
+              </button>
+              <div id="source-flags-list" class="source-group-body collapsed">
+                <div class="flag-filter-bar" id="flag-filter-bar">
+                  <button class="flag-btn" data-flag="bueno" title="Bueno">👍</button>
+                  <button class="flag-btn" data-flag="acorregir" title="A corregir">⚠️</button>
+                  <button class="flag-btn" data-flag="duda" title="Duda">❓</button>
+                  <button class="flag-btn" data-flag="importante" title="Importante">⭐</button>
+                  <button class="flag-btn" data-flag="has_chat" title="Con comentarios">💬</button>
+                </div>
               </div>
             </div>
             <div class="source-group" id="source-group-playlists">
@@ -244,20 +288,19 @@
             title="Limpiar todos los filtros">❌ Limpiar filtros</button>
         </div>
 
-        <!-- Flags -->
-        <div class="panel-section panel-section-fixed">
-          <h3 class="section-title">
-            Flags
-            <button id="btn-clear-flag-filter" class="btn btn-xs btn-ghost" style="display:none;">Limpiar</button>
-          </h3>
-          <div class="flag-filter-bar" id="flag-filter-bar">
-            <button class="flag-btn" data-flag="bueno" title="1 = Bueno">👍</button>
-            <button class="flag-btn" data-flag="acorregir" title="2 = A corregir">⚠️</button>
-            <button class="flag-btn" data-flag="duda" title="3 = Duda">❓</button>
-            <button class="flag-btn" data-flag="importante" title="4 = Importante">⭐</button>
-            <button class="flag-btn" data-flag="has_chat" title="Con comentarios">💬</button>
+        <!-- Active Playlist Header (shown when a playlist is selected) -->
+        <div id="active-playlist-header" class="panel-section panel-section-fixed" style="display:none;">
+          <div class="active-playlist-bar">
+            <span class="active-playlist-name" id="active-playlist-name"></span>
+            <span class="active-playlist-actions">
+              <button class="btn-playlist-action" id="btn-pl-share" title="Compartir">🔗</button>
+              <button class="btn-playlist-action" id="btn-pl-rename" title="Renombrar">✏️</button>
+              <button class="btn-playlist-action" id="btn-pl-delete" title="Eliminar">🗑️</button>
+              <button class="btn-playlist-action" id="btn-pl-close" title="Cerrar playlist">✕</button>
+            </span>
           </div>
         </div>
+
         <!-- Clips (scrolls independently) -->
         <div class="panel-section flex-grow">
           <h3 class="section-title">
@@ -270,11 +313,6 @@
             <span><span id="view-selected-count">0</span> seleccionados</span>
             <button id="btn-add-selected-to-playlist" class="btn btn-xs btn-primary">📋 Agregar a playlist</button>
           </div>
-        </div>
-        <div class="panel-actions">
-          <button id="btn-focus-view" class="btn btn-sm btn-ghost">
-            <span>🔍</span> Vista Foco
-          </button>
         </div>
       </div>
     </aside>
@@ -391,6 +429,9 @@
   <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
 
   <!-- App Scripts -->
   <script src="js/firebaseData.js"></script>

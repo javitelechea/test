@@ -304,8 +304,10 @@
             case 'out-minus': AppState.updateClipBounds(clipId, 'end_sec', -1); break;
             case 'out-plus': AppState.updateClipBounds(clipId, 'end_sec', 1); break;
             case 'delete-clip':
-                AppState.deleteClip(clipId);
-                UI.toast('Clip eliminado', 'success');
+                if (confirm('⚠️ ¿Eliminar este clip?\n\nEsta acción no se puede deshacer.')) {
+                    AppState.deleteClip(clipId);
+                    UI.toast('Clip eliminado', 'success');
+                }
                 break;
         }
     });
@@ -346,6 +348,65 @@
             AppState.addActivity('playlist_created', { playlistName: name, playlistId: newPl.id });
             nameInput.value = '';
             UI.toast(`Playlist creada: ${name}`, 'success');
+        });
+    }
+
+    // ── Active Playlist Header Actions ──
+    const btnPlClose = $('#btn-pl-close');
+    if (btnPlClose) {
+        btnPlClose.addEventListener('click', () => {
+            AppState.clearPlaylistFilter();
+        });
+    }
+
+    const btnPlShare = $('#btn-pl-share');
+    if (btnPlShare) {
+        btnPlShare.addEventListener('click', async () => {
+            const playlistId = AppState.get('activePlaylistId');
+            if (!playlistId) return;
+            let projectId = AppState.get('currentProjectId');
+            if (!projectId) {
+                UI.toast('Primero guardá el proyecto para compartir', 'error');
+                return;
+            }
+            const url = FirebaseData.getShareUrl(projectId, null, playlistId) + '&mode=view';
+            navigator.clipboard.writeText(url).then(() => {
+                UI.toast('🔗 Link de Playlist copiado', 'success');
+            }).catch(() => {
+                prompt('Copiá este link:', url);
+            });
+        });
+    }
+
+    const btnPlRename = $('#btn-pl-rename');
+    if (btnPlRename) {
+        btnPlRename.addEventListener('click', () => {
+            const playlistId = AppState.get('activePlaylistId');
+            if (!playlistId) return;
+            const playlists = AppState.get('playlists');
+            const pl = playlists.find(p => p.id === playlistId);
+            if (!pl) return;
+            const newName = prompt('Nuevo nombre para la playlist:', pl.name);
+            if (newName && newName.trim()) {
+                AppState.renamePlaylist(playlistId, newName.trim());
+                UI.toast(`Playlist renombrada: ${newName.trim()}`, 'success');
+            }
+        });
+    }
+
+    const btnPlDelete = $('#btn-pl-delete');
+    if (btnPlDelete) {
+        btnPlDelete.addEventListener('click', () => {
+            const playlistId = AppState.get('activePlaylistId');
+            if (!playlistId) return;
+            const playlists = AppState.get('playlists');
+            const pl = playlists.find(p => p.id === playlistId);
+            if (!pl) return;
+            if (confirm(`⚠️ ¿Eliminar la playlist "${pl.name}"?\n\nSe perderán todos los clips asociados a esta playlist.\nEsta acción no se puede deshacer.`)) {
+                AppState.clearPlaylistFilter();
+                AppState.deletePlaylist(playlistId);
+                UI.toast(`Playlist eliminada: ${pl.name}`, 'success');
+            }
         });
     }
 
@@ -480,7 +541,7 @@
                 delBtn.textContent = '🗑️';
                 delBtn.title = p.isShared ? 'Remover de la lista' : 'Eliminar localmente';
                 delBtn.addEventListener('click', () => {
-                    if (confirm(`¿Quitar "${p.title}" de tu lista local?`)) {
+                    if (confirm(`⚠️ ¿Quitar "${p.title}" de tu lista local?\n\nEsta acción no se puede deshacer.`)) {
                         FirebaseData.removeProjectLocally(p.id);
                         el.remove();
                     }
@@ -513,9 +574,12 @@
     });
 
     // Focus view toggle
-    $('#btn-focus-view').addEventListener('click', () => {
-        AppState.toggleFocusView();
-    });
+    const btnFocusView = $('#btn-focus-view');
+    if (btnFocusView) {
+        btnFocusView.addEventListener('click', () => {
+            AppState.toggleFocusView();
+        });
+    }
 
     // Nav arrows
     $('#btn-prev-clip').addEventListener('click', () => {
@@ -541,11 +605,8 @@
         // Spacebar: exclusively toggle play/pause to avoid accidental button clicks
         if (e.key === ' ') {
             e.preventDefault();
-            const playerState = YTPlayer.getPlayerState();
-            if (playerState === 1) { // playing
-                YTPlayer.pause();
-            } else {
-                YTPlayer.play();
+            if (typeof YTPlayer !== 'undefined' && YTPlayer.togglePlay) {
+                YTPlayer.togglePlay();
             }
             return;
         }
@@ -920,8 +981,8 @@
         const nameBtn = e.target.closest('.pl-name-click');
         if (nameBtn) {
             const playlistId = nameBtn.dataset.playlistId;
-            AppState.setMode('view');
             AppState.setPlaylistFilter(playlistId);
+            AppState.setMode('view');
         }
     };
 
@@ -949,6 +1010,13 @@
             DemoData.clear();
         }
 
+        // Init YouTube Player safely (handles file:// origin errors cleanly)
+        try {
+            await YTPlayer.init();
+        } catch (e) {
+            console.warn('YouTube Player no se pudo iniciar inmediatamente (común en file://).', e);
+        }
+
         // Init state (loads whatever is in DemoData)
         AppState.init();
 
@@ -960,13 +1028,6 @@
         // Init drawing tool
         if (typeof DrawingTool !== 'undefined') {
             DrawingTool.init();
-        }
-
-        // Init YouTube Player safely (handles file:// origin errors cleanly)
-        try {
-            await YTPlayer.init();
-        } catch (e) {
-            console.warn('YouTube Player no se pudo iniciar inmediatamente (común en file://).', e);
         }
 
         if (projectIdFromUrl) {

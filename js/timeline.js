@@ -26,9 +26,32 @@ const Timeline = (() => {
         document.addEventListener('mouseup', onMouseUp);
 
         // Listen for state changes to re-render clips
-        AppState.on('stateChanged', renderClips);
-        AppState.on('clipSelectionChanged', renderClips);
+        AppState.on('clipsUpdated', renderClips);
+        AppState.on('clipChanged', renderClips);
         AppState.on('gameChanged', () => setTimeout(renderClips, 1000));
+    }
+
+    // Helper to get the start and end seconds of the currently "visible" timeline.
+    // If a clip is selected, we zoom into [clipStart - 4s, clipEnd + 4s].
+    // If no clip is selected, we show the full duration [0, duration].
+    function getTimelineBounds() {
+        let duration = 0;
+        if (typeof YTPlayer !== 'undefined' && YTPlayer.isReady()) {
+            duration = YTPlayer.getDuration();
+        }
+
+        const currentClipId = AppState.get('currentClipId');
+        // Focus View: clip bounds + 5s margin
+        if (currentClipId && duration > 0) {
+            const clip = AppState.get('clips').find(c => c.id === currentClipId);
+            if (clip) {
+                const zoomStart = Math.max(0, clip.start_sec - 5);
+                const zoomEnd = Math.min(duration, clip.end_sec + 5);
+                return { start: zoomStart, end: zoomEnd, duration: zoomEnd - zoomStart };
+            }
+        }
+
+        return { start: 0, end: duration, duration: duration };
     }
 
     function formatTime(sec) {
@@ -44,10 +67,13 @@ const Timeline = (() => {
 
         try {
             const current = YTPlayer.getCurrentTime();
-            const duration = YTPlayer.getDuration();
+            const bounds = getTimelineBounds();
 
-            if (duration > 0) {
-                const percent = (current / duration) * 100;
+            if (bounds.duration > 0) {
+                // If current time is before the zoomed window or after the zoomed window,
+                // we still update the time label, but the percent cap to 0-100 handles it visually.
+                // However, hiding it when completely out of bounds could be good, but capping is safer.
+                const percent = ((current - bounds.start) / bounds.duration) * 100;
                 updatePlayhead(percent, current);
             }
         } catch (e) { }
@@ -55,9 +81,17 @@ const Timeline = (() => {
 
     function updatePlayhead(percent, currentSec) {
         if (!_progressEl || !_playheadEl) return;
-        const boundedPercent = Math.max(0, Math.min(percent, 100));
-        _progressEl.style.width = `${boundedPercent}%`;
-        _playheadEl.style.left = `${boundedPercent}%`;
+
+        // Hide playhead if it's outside the zoomed view bounds entirely (less than 0 or more than 100)
+        if (percent < 0 || percent > 100) {
+            _playheadEl.style.display = 'none';
+            _progressEl.style.width = '0%';
+        } else {
+            _playheadEl.style.display = 'block';
+            _progressEl.style.width = `${percent}%`;
+            _playheadEl.style.left = `${percent}%`;
+        }
+
         if (_timeLabelEl) {
             _timeLabelEl.textContent = formatTime(currentSec);
         }
@@ -69,94 +103,45 @@ const Timeline = (() => {
         let x = e.clientX - rect.left;
         x = Math.max(0, Math.min(x, rect.width));
         const percent = x / rect.width;
-        return percent * YTPlayer.getDuration();
+
+        const bounds = getTimelineBounds();
+        return bounds.start + (percent * bounds.duration);
     }
 
     function onMouseDown(e) {
         if (typeof YTPlayer === 'undefined' || !YTPlayer.isReady()) return;
 
-        const target = e.target;
-        if (target.classList.contains('clip-stretch-handle')) {
-            _isDragging = true;
-            _dragType = target.classList.contains('left') ? 'clip-start' : 'clip-end';
-            _dragClipId = target.dataset.clipId;
-            e.stopPropagation();
-            return;
-        }
-
-        // Otherwise seek
+        // Dragging removed per user feedback
         _isDragging = true;
         _dragType = 'playhead';
 
         const sec = getSecFromEvent(e);
         YTPlayer.seekTo(sec);
-        updatePlayhead((sec / YTPlayer.getDuration()) * 100, sec);
+
+        const bounds = getTimelineBounds();
+        if (bounds.duration > 0) {
+            updatePlayhead(((sec - bounds.start) / bounds.duration) * 100, sec);
+        }
     }
 
     function onMouseMove(e) {
         if (!_isDragging) return;
 
         const sec = getSecFromEvent(e);
-        const duration = YTPlayer.getDuration();
-        if (duration <= 0) return;
+        const bounds = getTimelineBounds();
+        if (bounds.duration <= 0) return;
 
+        // Dragging removed per user feedback
         if (_dragType === 'playhead') {
             YTPlayer.seekTo(sec);
-            updatePlayhead((sec / duration) * 100, sec);
-        }
-        else if (_dragType === 'clip-start' || _dragType === 'clip-end') {
-            // Live preview
-            YTPlayer.seekTo(sec);
-            updatePlayhead((sec / duration) * 100, sec);
-
-            // Update clip visual immediately for smooth dragging
-            const clipEl = document.querySelector(`.timeline-clip-segment[data-clip-id="${_dragClipId}"]`);
-            if (clipEl) {
-                const clip = AppState.get('clips').find(c => c.id === _dragClipId);
-                if (clip) {
-                    let newStart = clip.start_sec;
-                    let newEnd = clip.end_sec;
-
-                    if (_dragType === 'clip-start') {
-                        newStart = Math.min(sec, clip.end_sec - 1);
-                    } else {
-                        newEnd = Math.max(sec, clip.start_sec + 1);
-                    }
-
-                    const leftPct = (newStart / duration) * 100;
-                    const widthPct = ((newEnd - newStart) / duration) * 100;
-
-                    clipEl.style.left = `${Math.max(0, Math.min(leftPct, 100))}%`;
-                    clipEl.style.width = `${Math.max(0, Math.min(widthPct, 100))}%`;
-                }
-            }
+            updatePlayhead(((sec - bounds.start) / bounds.duration) * 100, sec);
         }
     }
 
     function onMouseUp(e) {
         if (!_isDragging) return;
 
-        const sec = getSecFromEvent(e);
-
-        if (_dragType === 'clip-start' || _dragType === 'clip-end') {
-            const clip = AppState.get('clips').find(c => c.id === _dragClipId);
-            if (clip) {
-                let finalStart = clip.start_sec;
-                let finalEnd = clip.end_sec;
-
-                if (_dragType === 'clip-start') {
-                    finalStart = Math.min(sec, clip.end_sec - 1);
-                } else {
-                    finalEnd = Math.max(sec, clip.start_sec + 1);
-                }
-
-                // Directly update the bounds in the state without triggering multiple plays
-                AppState.updateClipBounds(_dragClipId, finalStart, finalEnd);
-                if (typeof UI !== 'undefined' && UI.toast) {
-                    UI.toast('Límites de clip actualizados', 'success');
-                }
-            }
-        }
+        // Dragging removed per user feedback
 
         _isDragging = false;
         _dragType = null;
@@ -172,8 +157,8 @@ const Timeline = (() => {
             return;
         }
 
-        const duration = YTPlayer.getDuration();
-        if (duration <= 0) {
+        const bounds = getTimelineBounds();
+        if (bounds.duration <= 0) {
             setTimeout(renderClips, 1000); // try again later if metadata isn't fully loaded
             return;
         }
@@ -191,31 +176,32 @@ const Timeline = (() => {
         const currentClipId = AppState.get('currentClipId');
 
         clips.forEach(clip => {
-            const leftPct = (clip.start_sec / duration) * 100;
-            const widthPct = ((clip.end_sec - clip.start_sec) / duration) * 100;
+            // Only render clips that overlap with the current bounds
+            if (clip.end_sec < bounds.start || clip.start_sec > bounds.end) {
+                return; // Clip is outside the visible timeline window
+            }
+
+            // HIDE other clips when zoomed in to focus ONLY on the active clip's boundaries
+            if (currentClipId && clip.id !== currentClipId) {
+                return;
+            }
+
+            const leftPct = ((clip.start_sec - bounds.start) / bounds.duration) * 100;
+            const widthPct = ((clip.end_sec - clip.start_sec) / bounds.duration) * 100;
 
             const el = document.createElement('div');
             el.className = 'timeline-clip-segment';
             el.dataset.clipId = clip.id;
-            el.style.left = `${Math.max(0, Math.min(leftPct, 100))}%`;
-            el.style.width = `${Math.max(0, Math.min(widthPct, 100))}%`;
+
+            // Allow clips to graphically overflow if they stretch beyond the bounds, which looks natural
+            el.style.left = `${leftPct}%`;
+            el.style.width = `${widthPct}%`;
 
             // Active clip glows more
             if (clip.id === currentClipId) {
                 el.style.background = 'var(--accent)';
                 el.style.zIndex = '5';
             }
-
-            // Handles
-            const handleLeft = document.createElement('div');
-            handleLeft.className = 'clip-stretch-handle left';
-            handleLeft.dataset.clipId = clip.id;
-            el.appendChild(handleLeft);
-
-            const handleRight = document.createElement('div');
-            handleRight.className = 'clip-stretch-handle right';
-            handleRight.dataset.clipId = clip.id;
-            el.appendChild(handleRight);
 
             // Clicking the segment should seek to start of clip
             el.addEventListener('click', (e) => {

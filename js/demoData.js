@@ -175,6 +175,11 @@ const DemoData = (() => {
         });
     }
 
+    function removeClipFromPlaylist(playlistId, clipId) {
+        const idx = playlistItems.findIndex(pi => pi.playlist_id === playlistId && pi.clip_id === clipId);
+        if (idx >= 0) playlistItems.splice(idx, 1);
+    }
+
     function getClipFlags(clipId) {
         return clipFlags
             .filter(cf => cf.clip_id === clipId)
@@ -256,13 +261,18 @@ const DemoData = (() => {
         tagTypes = tagTypes.filter(t => t.id !== id);
     }
 
+    function deletePlaylist(id) {
+        playlists = playlists.filter(p => p.id !== id);
+        delete playlistItems[id];
+    }
+
     // Seed on load
     seed();
 
     return {
         getTagTypes, getGames, createGame,
         getClipsForGame, createClip, updateClip, deleteClip,
-        getPlaylistsForGame, createPlaylist, getPlaylistItems, addClipToPlaylist,
+        getPlaylistsForGame, createPlaylist, getPlaylistItems, addClipToPlaylist, removeClipFromPlaylist, deletePlaylist,
         getClipFlags, addFlag, removeFlag,
         createTagType, updateTagType, deleteTagType,
         clear, restore

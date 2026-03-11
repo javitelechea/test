@@ -212,7 +212,7 @@ const UI = (() => {
         const comments = AppState.getComments(playlistId, clipId);
         const drawCount = comments.filter(c => c.drawing).length;
         const hasClass = drawCount > 0 ? ' has-drawings' : '';
-        return `<button class="clip-draw-btn${hasClass}" data-clip-id="${clipId}" data-playlist-id="${playlistId}" title="Dibujar (${drawCount})">✏️${drawCount > 0 ? drawCount : ''}</button>`;
+        return `<button class="clip-draw-btn${hasClass}" data-clip-id="${clipId}" data-playlist-id="${playlistId}" title="Dibujar (${drawCount})">🎨${drawCount > 0 ? drawCount : ''}</button>`;
     }
 
     function buildChatPanel(playlistId, clipId) {
@@ -252,64 +252,84 @@ const UI = (() => {
         </div>`;
     }
 
+    function toggleChatPanelForClip(playlistId, clipId) {
+        if (!playlistId) return;
+
+        const mode = AppState.get('mode');
+        const listContainer = mode === 'analyze' ? $('#analyze-clip-list') : $('#view-clip-list');
+        if (!listContainer) return;
+
+        const parentEl = Array.from(listContainer.querySelectorAll('.clip-item')).find(el => el.dataset.clipId === clipId);
+        if (!parentEl) return;
+
+        const existing = parentEl.querySelector('.clip-chat-panel');
+        if (existing) {
+            existing.remove();
+        } else {
+            // Close any other open chat
+            $$('.clip-chat-panel').forEach(p => p.remove());
+            parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
+
+            // Focus text input
+            const textInput = parentEl.querySelector('.chat-text-input');
+            if (textInput) textInput.focus();
+
+            // Send handler
+            const sendBtn = parentEl.querySelector('.chat-send-btn');
+            const nameInput = parentEl.querySelector('.chat-name-input');
+            const panel = parentEl.querySelector('.clip-chat-panel');
+
+            const closeChat = (ev) => {
+                if (panel && !panel.contains(ev.target) && !ev.target.closest('#btn-clip-chat') && !ev.target.closest('.clip-chat-btn')) {
+                    panel.remove();
+                    document.removeEventListener('click', closeChat);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeChat), 10);
+
+            const sendMessage = () => {
+                const name = nameInput.value.trim();
+                const text = textInput.value.trim();
+                if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
+                if (!text) return;
+                localStorage.setItem('sr_chat_name', name);
+                AppState.addComment(playlistId, clipId, name, text);
+                document.removeEventListener('click', closeChat);
+                const mode = AppState.get('mode');
+                if (mode === 'analyze') {
+                    renderAnalyzeClips();
+                } else {
+                    renderViewClips();
+                }
+                updateClipEditControls();
+            };
+            sendBtn.addEventListener('click', sendMessage);
+            textInput.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
+            });
+
+            // Drawing thumbnail click handlers
+            panel.querySelectorAll('.drawing-thumb-wrap').forEach(thumb => {
+                thumb.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const drawingData = thumb.dataset.drawing;
+                    const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
+                    if (drawingData && typeof DrawingTool !== 'undefined') {
+                        DrawingTool.showDrawingOverlay(drawingData, videoTime);
+                    }
+                });
+            });
+        }
+    }
+
     function attachChatHandlers(container, rerenderFn) {
-        // Toggle chat panel
+        // Toggle chat panel on small specific clip button
         container.querySelectorAll('.clip-chat-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const clipId = btn.dataset.clipId;
                 const playlistId = btn.dataset.playlistId;
-                if (!playlistId) return; // Chat only in playlists
-                const parentEl = btn.closest('.clip-item');
-                const existing = parentEl.querySelector('.clip-chat-panel');
-                if (existing) {
-                    existing.remove();
-                } else {
-                    // Close any other open chat
-                    container.querySelectorAll('.clip-chat-panel').forEach(p => p.remove());
-                    parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
-                    // Focus text input
-                    const textInput = parentEl.querySelector('.chat-text-input');
-                    if (textInput) textInput.focus();
-                    // Send handler
-                    const sendBtn = parentEl.querySelector('.chat-send-btn');
-                    const nameInput = parentEl.querySelector('.chat-name-input');
-                    const panel = parentEl.querySelector('.clip-chat-panel');
-                    const closeChat = (ev) => {
-                        if (panel && !panel.contains(ev.target) && !btn.contains(ev.target)) {
-                            panel.remove();
-                            document.removeEventListener('click', closeChat);
-                        }
-                    };
-                    setTimeout(() => document.addEventListener('click', closeChat), 10);
-
-                    const sendMessage = () => {
-                        const name = nameInput.value.trim();
-                        const text = textInput.value.trim();
-                        if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
-                        if (!text) return;
-                        localStorage.setItem('sr_chat_name', name);
-                        AppState.addComment(playlistId, clipId, name, text);
-                        document.removeEventListener('click', closeChat);
-                        rerenderFn();
-                    };
-                    sendBtn.addEventListener('click', sendMessage);
-                    textInput.addEventListener('keydown', (ev) => {
-                        if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
-                    });
-
-                    // Drawing thumbnail click handlers
-                    panel.querySelectorAll('.drawing-thumb-wrap').forEach(thumb => {
-                        thumb.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const drawingData = thumb.dataset.drawing;
-                            const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
-                            if (drawingData && typeof DrawingTool !== 'undefined') {
-                                DrawingTool.showDrawingOverlay(drawingData, videoTime);
-                            }
-                        });
-                    });
-                }
+                toggleChatPanelForClip(playlistId, clipId);
             });
         });
 
@@ -434,34 +454,47 @@ const UI = (() => {
 
             const isRival = tag && tag.row === 'bottom';
             const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
-            const flagBtnHtml = buildFlagButton(clip.id, flags);
-            const chatBtnHtml = buildChatButton(activePlaylistId, clip.id);
-            const drawBtnHtml = buildDrawButton(activePlaylistId, clip.id);
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
 
-            let playlistBtnHtml = '';
+            // Fixed-slot flag indicators: always 4 slots, dim if inactive
+            const allFlagKeys = ['bueno', 'acorregir', 'duda', 'importante'];
+            const flagSlotsHtml = allFlagKeys.map(f => {
+                const isOn = flags.includes(f);
+                return `<span class="clip-flag-slot${isOn ? ' on' : ''}">${FLAG_EMOJI[f]}</span>`;
+            }).join('');
+
+            // Chat indicator slot (always present if in playlist, visible if has comments)
+            let chatSlotHtml = '';
+            if (activePlaylistId) {
+                const comments = AppState.getComments(activePlaylistId, clip.id);
+                const hasComments = comments.length > 0;
+                chatSlotHtml = `<span class="clip-flag-slot${hasComments ? ' on' : ''}" title="${hasComments ? comments.length + ' comentario(s)' : 'Sin comentarios'}">💬</span>`;
+            }
+
+            // Action buttons (direct, not in tiny slots)
+            let actionSlotsHtml = '';
             if (!isReadOnly) {
-                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+                actionSlotsHtml = `
+                    <button class="clip-action-btn clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>
+                    <button class="clip-action-btn clip-delete-btn" data-clip-id="${clip.id}" title="${activePlaylistId ? 'Quitar de playlist' : 'Eliminar clip'}">🗑️</button>`;
             }
 
             el.innerHTML = `
-        <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
-        <span class="${badgeClass}">${tagLabel}</span>
-        <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
-        <span class="clip-item-spacer"></span>
-        ${flagBtnHtml}
-        ${chatBtnHtml}
-        ${drawBtnHtml}
-        ${playlistBtnHtml}
-      `;
+                <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
+                <span class="${badgeClass}">${tagLabel}</span>
+                <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
+                <span class="clip-item-spacer"></span>
+                <span class="clip-indicators-row">
+                    ${flagSlotsHtml}
+                    ${chatSlotHtml}
+                    ${actionSlotsHtml}
+                </span>
+            `;
 
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.clip-flag-btn')) return;
-                if (e.target.closest('.flag-popover')) return;
                 if (e.target.classList.contains('clip-checkbox')) return;
-                if (e.target.closest('.clip-chat-panel')) return;
-                if (e.target.closest('.clip-chat-btn')) return;
+                if (e.target.closest('.clip-action-btn')) return;
                 if (e.target.closest('.clip-action-icon')) return;
                 AppState.setCurrentClip(clip.id);
                 YTPlayer.playClip(clip.start_sec, clip.end_sec);
@@ -480,9 +513,6 @@ const UI = (() => {
             });
         });
 
-        // Flag dropdown
-        attachFlagDropdownHandlers(container, () => renderViewClips());
-
         // Playlist add buttons
         container.querySelectorAll('.clip-add-playlist').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -491,8 +521,24 @@ const UI = (() => {
             });
         });
 
-        // Chat handlers
-        attachChatHandlers(container, () => renderViewClips());
+        // Delete buttons (contextual: remove from playlist vs delete clip)
+        container.querySelectorAll('.clip-delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const clipId = btn.dataset.clipId;
+                if (activePlaylistId) {
+                    if (confirm('¿Quitar este clip de la playlist?')) {
+                        AppState.removeClipFromPlaylist(activePlaylistId, clipId);
+                        UI.toast('Clip quitado de la playlist', 'success');
+                    }
+                } else {
+                    if (confirm('⚠️ ¿Eliminar este clip?\n\nEsta acción no se puede deshacer.')) {
+                        AppState.deleteClip(clipId);
+                        UI.toast('Clip eliminado', 'success');
+                    }
+                }
+            });
+        });
 
         updateSelectionBar();
     }
@@ -514,12 +560,57 @@ const UI = (() => {
 
     // ═══ CLIP EDIT CONTROLS ═══
     function updateClipEditControls() {
-        const controls = $('#clip-edit-controls');
-        const clip = AppState.getCurrentClip();
-        if (clip) {
-            controls.style.display = 'flex';
-        } else {
-            controls.style.display = 'none';
+        const currentClipId = AppState.get('currentClipId');
+        const toolbarEl = $('#clip-view-toolbar');
+
+        if (toolbarEl) {
+            if (currentClipId) {
+                const currentClip = AppState.getCurrentClip();
+                if (currentClip && $('#toolbar-clip-name')) {
+                    const tagInfo = AppState.getTagType(currentClip.tag_type_id);
+                    const clipNum = AppState.getClipNumber(currentClip);
+                    $('#toolbar-clip-name').textContent = tagInfo ? `${tagInfo.label} ${clipNum}` : `Clip ${clipNum}`;
+                }
+                toolbarEl.style.display = 'flex';
+                // Initialize flag buttons state
+                const flags = AppState.getClipUserFlags(currentClipId);
+                $$('.flag-btn-mini').forEach(btn => {
+                    if (flags.includes(btn.dataset.flag)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+
+                // Disable chat/draw buttons if no active playlist
+                const activePlaylistId = AppState.get('activePlaylistId');
+                const chatBtn = $('#btn-clip-chat');
+                const drawBtn = $('#btn-clip-draw');
+                if (chatBtn) {
+                    if (activePlaylistId) {
+                        chatBtn.style.setProperty('opacity', '1', 'important');
+                        chatBtn.style.cursor = 'pointer';
+                        chatBtn.title = 'Chat';
+                    } else {
+                        chatBtn.style.setProperty('opacity', '0.3', 'important');
+                        chatBtn.style.cursor = 'not-allowed';
+                        chatBtn.title = 'Requiere playlist';
+                    }
+                }
+                if (drawBtn) {
+                    if (activePlaylistId) {
+                        drawBtn.style.setProperty('opacity', '1', 'important');
+                        drawBtn.style.cursor = 'pointer';
+                        drawBtn.title = 'Dibujar';
+                    } else {
+                        drawBtn.style.setProperty('opacity', '0.3', 'important');
+                        drawBtn.style.cursor = 'not-allowed';
+                        drawBtn.title = 'Requiere playlist';
+                    }
+                }
+            } else {
+                toolbarEl.style.display = 'none';
+            }
         }
     }
 
@@ -564,21 +655,13 @@ const UI = (() => {
         tagsContainer.innerHTML = '';
         playlistsContainer.innerHTML = '';
 
-        // Update 'all' button
-        const allBtn = $('#src-all');
-        const hasAnyFilter = activeTagIds.length > 0 || activePlaylistId;
-        allBtn.className = 'source-btn' + (!hasAnyFilter ? ' active' : '');
-        allBtn.onclick = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'view' && urlParams.get('playlist')) {
-                UI.toast('Estás viendo una playlist compartida', 'info');
-                return; // Lock it
-            }
-            AppState.clearTagFilters();
-            AppState.clearPlaylistFilter();
-        };
+        const allClips = AppState.get('clips');
 
-        tags.filter(t => !t.isHidden).forEach(tag => {
+        tags.forEach(tag => {
+            // Include tag if it's not hidden OR if it has associated clips (imported tags)
+            const hasClips = allClips.some(c => c.tag_type_id === tag.id);
+            if (tag.isHidden && !hasClips) return;
+
             const btn = document.createElement('button');
             const isRival = tag.row === 'bottom';
             const isActive = activeTagIds.includes(tag.id);
@@ -587,14 +670,30 @@ const UI = (() => {
             btn.textContent = tag.label;
             btn.addEventListener('click', () => {
                 AppState.toggleTagFilter(tag.id);
-                // Auto-collapse after selection
-                const body = document.getElementById('source-tags-list');
-                const toggle = body?.previousElementSibling;
-                if (body) body.classList.add('collapsed');
-                if (toggle) toggle.classList.remove('open');
             });
             tagsContainer.appendChild(btn);
         });
+
+        // Tag search functionality
+        const tagSearchInput = $('#view-tag-search');
+        if (tagSearchInput) {
+            // Restore search value if we just re-rendered
+            const currentSearch = tagSearchInput.value.toLowerCase();
+
+            const filterTags = () => {
+                const term = tagSearchInput.value.toLowerCase();
+                const buttons = tagsContainer.querySelectorAll('.source-btn');
+                buttons.forEach(btn => {
+                    const text = btn.textContent.toLowerCase();
+                    btn.style.display = text.includes(term) ? '' : 'none';
+                });
+            };
+
+            tagSearchInput.addEventListener('input', filterTags);
+
+            // Apply immediately in case there was text (though unlikely since we don't save its state, but good practice)
+            if (currentSearch) filterTags();
+        }
 
         const urlParams = new URLSearchParams(window.location.search);
         const isReadOnly = urlParams.get('mode') === 'view';
@@ -651,6 +750,20 @@ const UI = (() => {
             playlistsContainer.appendChild(wrap);
         });
 
+        // Update active playlist header
+        const plHeader = $('#active-playlist-header');
+        const plNameEl = $('#active-playlist-name');
+        if (plHeader && plNameEl) {
+            if (activePlaylistId) {
+                const activePl = playlists.find(p => p.id === activePlaylistId);
+                plHeader.style.display = 'block';
+                plNameEl.textContent = activePl ? `📁 ${activePl.name}` : 'Playlist';
+            } else {
+                plHeader.style.display = 'none';
+                plNameEl.textContent = '';
+            }
+        }
+
         // Render filter chips
         renderFilterChips(tags, playlists, activeTagIds, activePlaylistId);
     }
@@ -659,7 +772,7 @@ const UI = (() => {
         const container = $('#active-filter-chip');
         container.innerHTML = '';
 
-        const hasFilters = activeTagIds.length > 0 || activePlaylistId;
+        const hasFilters = activeTagIds.length > 0;
 
         if (!hasFilters) {
             container.style.display = 'none';
@@ -679,26 +792,7 @@ const UI = (() => {
             container.appendChild(chip);
         });
 
-        // Playlist chip
-        if (activePlaylistId) {
-            const pl = playlists.find(p => p.id === activePlaylistId);
-            if (pl) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const isReadOnly = urlParams.get('mode') === 'view';
-                const sharedPlaylistId = urlParams.get('playlist');
-                const isLockedPlaylist = isReadOnly && sharedPlaylistId && pl.id === sharedPlaylistId;
-
-                const chip = document.createElement('span');
-                chip.className = 'filter-chip playlist';
-                if (isLockedPlaylist) {
-                    // Render without the 'X' button
-                    chip.innerHTML = `📁 ${pl.name}`;
-                } else {
-                    chip.innerHTML = `📁 ${pl.name}<button class="filter-chip-x" data-remove-playlist="1" title="Quitar">✕</button>`;
-                }
-                container.appendChild(chip);
-            }
-        }
+        // Playlist chip removed — playlist now shown in dedicated header bar
 
         // Attach remove handlers
         container.querySelectorAll('[data-remove-tag]').forEach(btn => {
@@ -866,7 +960,7 @@ const UI = (() => {
     function updateFlagFilterBar() {
         const activeFilters = AppState.get('filterFlags');
         const clearBtn = $('#btn-clear-flag-filter');
-        clearBtn.style.display = activeFilters.length > 0 ? 'inline-flex' : 'none';
+        if (clearBtn) clearBtn.style.display = activeFilters.length > 0 ? 'inline-flex' : 'none';
 
         $$('#flag-filter-bar .flag-btn').forEach(btn => {
             const flag = btn.dataset.flag;
@@ -1123,11 +1217,91 @@ const UI = (() => {
 
     function deleteTagFromEditor() {
         if (_editingTagId && _editingTagId !== '__new__') {
+            if (!confirm('⚠️ ¿Eliminar este tag?\n\nSe eliminarán también todos los clips asociados a este tag.\nEsta acción no se puede deshacer.')) return;
             AppState.deleteTagType(_editingTagId);
             toast('Tag eliminado', 'success');
         }
         closeTagInlineEditor();
     }
+
+    // ═══ CLIP VIEW TOOLBAR BUTTONS ═══
+    document.addEventListener('click', (e) => {
+        const toolbar = e.target.closest('#clip-view-toolbar');
+        if (!toolbar) return;
+
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const clipId = AppState.get('currentClipId');
+        const clip = AppState.getCurrentClip();
+        if (!clipId || !clip) return;
+
+        // Playback
+        if (btn.id === 'btn-clip-playpause') {
+            if (typeof YTPlayer !== 'undefined') YTPlayer.togglePlay();
+        }
+        else if (btn.id === 'btn-clip-restart') {
+            if (typeof YTPlayer !== 'undefined') YTPlayer.seekTo(clip.start_sec);
+        }
+        else if (btn.id === 'btn-clip-next') {
+            AppState.navigateClip('next');
+            const nextClip = AppState.getCurrentClip();
+            if (nextClip && typeof YTPlayer !== 'undefined') {
+                YTPlayer.playClip(nextClip.start_sec, nextClip.end_sec);
+            }
+        }
+        // Actions
+        else if (btn.id === 'btn-clip-close') {
+            AppState.setCurrentClip(null);
+            if (typeof YTPlayer !== 'undefined') YTPlayer.play(); // resume main video
+        }
+        else if (btn.dataset.action === 'flag') {
+            AppState.toggleFlag(clipId, btn.dataset.flag);
+        }
+        else if (btn.id === 'btn-clip-chat') {
+            const activePlaylistId = AppState.get('activePlaylistId');
+            if (!activePlaylistId) {
+                UI.toast('El clip debe estar en una Playlist para usar el Chat', 'warning');
+                return;
+            }
+            toggleChatPanelForClip(activePlaylistId, clipId);
+        }
+        else if (btn.id === 'btn-clip-draw') {
+            const activePlaylistId = AppState.get('activePlaylistId');
+            if (!activePlaylistId) {
+                UI.toast('El clip debe estar en una Playlist para poder Dibujar', 'warning');
+                return;
+            }
+            if (typeof DrawingTool !== 'undefined') {
+                DrawingTool.open(activePlaylistId, clipId);
+            }
+        }
+        else if (btn.id === 'btn-clip-mark-out') {
+            const t = YTPlayer.getCurrentTime();
+            if (t > clip.start_sec) {
+                AppState.updateClipAbsoluteBounds(clipId, clip.start_sec, t);
+                UI.toast('OUT fijado', 'success');
+                YTPlayer.pause();
+                if (typeof YTPlayer.clearAutoPause === 'function') YTPlayer.clearAutoPause();
+            } else {
+                UI.toast('El tiempo es menor al IN', 'error');
+            }
+        }
+        else if (btn.id === 'btn-clip-mark-in') {
+            const t = YTPlayer.getCurrentTime();
+            if (t < clip.end_sec) {
+                AppState.updateClipAbsoluteBounds(clipId, t, clip.end_sec);
+                UI.toast('IN fijado', 'success');
+                YTPlayer.pause();
+                if (typeof YTPlayer.clearAutoPause === 'function') YTPlayer.clearAutoPause();
+            } else {
+                UI.toast('El tiempo es mayor al OUT', 'error');
+            }
+        }
+        else if (btn.dataset.action === 'delete-clip') {
+            AppState.deleteClip(clipId);
+        }
+    });
 
     return {
         $, $$, toast, formatTime,

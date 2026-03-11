@@ -129,7 +129,7 @@ const DrawingTool = (() => {
         // Use the extended addComment with drawing data
         AppState.addComment(_playlistId, _clipId, savedName, '🎨 Dibujo', dataUrl, _videoTimestamp);
 
-        UI.toast('Dibujo guardado ✏️', 'success');
+        UI.toast('Dibujo guardado 🎨', 'success');
         close();
     }
 

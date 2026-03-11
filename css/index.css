@@ -705,40 +705,59 @@ select {
 
 .timeline-progress {
   position: absolute;
-  top: 50%;
+  bottom: 0;
   left: 0;
-  transform: translateY(-50%);
-  height: 6px;
+  height: 100%;
   background: var(--accent);
-  border-radius: 3px;
+  opacity: 0.2;
+  /* Very subtle background fill instead of solid */
+  z-index: 1;
   pointer-events: none;
+  transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .timeline-playhead {
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ef4444;
-  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
   z-index: 10;
+  pointer-events: none;
+  transform: translateX(-50%);
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+  /* Glow effect for the line */
+  transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform 0.1s ease;
+}
+
+/* Add a pseudo-element for the top handle of the playhead */
+.timeline-playhead::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--accent);
 }
 
 .playhead-time {
   position: absolute;
-  top: -24px;
+  top: -26px;
   left: 50%;
   transform: translateX(-50%);
-  background: #ef4444;
+  background: var(--accent);
   color: white;
   padding: 2px 6px;
-  border-radius: 4px;
   font-size: 0.7rem;
-  font-weight: bold;
+  font-weight: 600;
+  border-radius: 4px;
   pointer-events: none;
   white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .timeline-clips {
@@ -963,9 +982,62 @@ select {
   margin: 0 4px;
 }
 
-/* ═══════════════════════════════════════════
-   SIDE PANEL
-   ═══════════════════════════════════════════ */
+/* ==========================================================================
+   CLIP VIEW TOOLBAR
+   ========================================================================== */
+.clip-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  gap: 12px;
+  position: relative;
+  z-index: 100;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timing-controls {
+  flex: 1;
+  justify-content: center;
+}
+
+.clip-toolbar-flags {
+  display: flex;
+  gap: 4px;
+}
+
+.flag-btn-mini {
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.flag-btn-mini:hover {
+  background: var(--bg-hover);
+  opacity: 1;
+}
+
+.flag-btn-mini.active {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+/* ==========================================================================
+   SIDEBAR (RIGHT PANEL)
+   ========================================================================== */
 .side-panel {
   width: var(--panel-w);
   min-width: var(--panel-w);
@@ -976,7 +1048,8 @@ select {
   flex-direction: column;
   position: relative;
   transition: width var(--tr-slow), min-width var(--tr-slow), max-width var(--tr-slow), opacity var(--tr-normal);
-  overflow: hidden;
+  overflow: visible;
+  /* Allow floating button */
 }
 
 .side-panel.collapsed {
@@ -989,25 +1062,29 @@ select {
 
 .btn-collapse {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  left: -28px;
   width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  height: 60px;
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
   border: 1px solid var(--border);
-  background: var(--bg-tertiary);
+  border-right: none;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 5;
+  z-index: 50;
   transition: all var(--tr-fast);
 }
 
 .btn-collapse:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  width: 34px;
+  left: -34px;
 }
 
 .btn-expand {
@@ -1039,7 +1116,7 @@ select {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 44px var(--sp-md) var(--sp-md);
+  padding: var(--sp-lg) var(--sp-md) var(--sp-md);
 }
 
 .panel-section {
@@ -1313,45 +1390,75 @@ select {
   flex-shrink: 0;
 }
 
-.clip-add-playlist {
-  opacity: 0;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  padding: 2px;
-  transition: opacity var(--tr-fast);
+/* Fixed-slot indicator row */
+.clip-indicators-row {
+  display: flex;
+  align-items: center;
+  gap: 1px;
   flex-shrink: 0;
 }
 
-.clip-item:hover .clip-add-playlist {
+.clip-flag-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.6rem;
+  opacity: 0.15;
+  transition: opacity var(--tr-fast);
+  line-height: 1;
+}
+
+.clip-flag-slot.on {
   opacity: 1;
 }
 
-.clip-add-playlist:hover {
-  color: var(--accent);
+.clip-flag-slot.action-slot {
+  opacity: 0;
 }
 
-.clip-delete-btn {
-  opacity: 0;
+.clip-item:hover .clip-flag-slot.action-slot {
+  opacity: 1;
+}
+
+/* Action icons in clip list */
+.clip-action-icon {
   background: none;
   border: none;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  padding: 2px;
-  transition: all var(--tr-fast);
-  flex-shrink: 0;
+  font-size: 0.6rem;
+  padding: 0;
   cursor: pointer;
+  transition: all var(--tr-fast);
+  line-height: 1;
 }
 
-.clip-item:hover .clip-delete-btn {
+.clip-action-icon:hover {
+  transform: scale(1.3);
+}
+
+/* Clip action buttons (playlist add, delete) */
+.clip-action-btn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--tr-fast);
+  line-height: 1;
+}
+
+.clip-item:hover .clip-action-btn {
   opacity: 0.6;
 }
 
-.clip-delete-btn:hover {
-  color: var(--danger);
-  opacity: 1;
+.clip-action-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.2);
 }
+
+/* clip-delete-btn styles now handled by .clip-action-btn */
 
 /* ═══════════════════════════════════════════
    SOURCE SELECTOR & FLAGS
@@ -1359,32 +1466,69 @@ select {
 .source-selector {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-xs);
+  gap: var(--sp-sm);
+}
+
+/* Tag filter grid: compact wrap of small chips */
+.tag-filter-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.source-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  margin-bottom: 6px;
+}
+
+.source-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.source-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .source-btn {
-  display: block;
-  width: 100%;
-  padding: 7px 12px;
-  text-align: left;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: transparent;
+  display: inline-flex;
+  padding: 3px 8px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.68rem;
   font-weight: 500;
   transition: all var(--tr-fast);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .source-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 
 .source-btn.active {
   background: var(--accent-glow);
   border-color: var(--accent);
   color: var(--accent-hover);
+}
+
+.source-btn-rival.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--danger);
+  color: #fca5a5;
 }
 
 .source-group {
@@ -1429,35 +1573,36 @@ select {
   overflow: hidden;
   transition: max-height var(--tr-normal);
   max-height: 500px;
-  padding-left: var(--sp-sm);
+  padding: var(--sp-sm);
 }
 
 .source-group-body.collapsed {
   max-height: 0;
   overflow: hidden;
+  padding: 0 var(--sp-sm);
 }
 
 /* Flag buttons */
 .flag-filter-bar {
   display: flex;
-  gap: var(--sp-xs);
+  gap: 4px;
 }
 
 .flag-btn {
   flex: 1;
-  padding: 6px;
+  padding: 4px;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  background: var(--bg-tertiary);
-  font-size: 1.1rem;
+  background: var(--bg-secondary);
+  font-size: 0.85rem;
   text-align: center;
   transition: all var(--tr-fast);
+  cursor: pointer;
 }
 
 .flag-btn:hover {
   border-color: var(--accent);
   background: var(--bg-hover);
-  transform: translateY(-1px);
 }
 
 .flag-btn.active {
@@ -1469,6 +1614,55 @@ select {
 .flag-btn.filter-active {
   border-color: var(--warning);
   background: rgba(245, 158, 11, 0.15);
+}
+
+/* Active Playlist Header */
+.active-playlist-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(99, 102, 241, 0.12));
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: var(--r-sm);
+}
+
+.active-playlist-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #67e8f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.active-playlist-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.btn-playlist-action {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  padding: 3px 5px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all var(--tr-fast);
+}
+
+.btn-playlist-action:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#btn-pl-close {
+  color: #f87171;
+  opacity: 0.9;
+  font-weight: bold;
 }
 
 /* ═══════════════════════════════════════════
