@@ -601,33 +601,37 @@ const UI = (() => {
     }
 
     function updateClipPlayhead() {
-        const clipId = AppState.get('currentClipId');
-        if (!clipId) return;
-        const actionBar = $('#view-action-bar');
-        if (!actionBar || actionBar.classList.contains('hidden')) return;
+        try {
+            const clipId = AppState.get('currentClipId');
+            if (!clipId) return;
+            const actionBar = $('#view-action-bar');
+            if (!actionBar || actionBar.classList.contains('hidden')) return;
 
-        const clip = AppState.get('clips').find(c => c.id === clipId);
-        if (!clip) return;
+            const clip = AppState.get('clips').find(c => c.id === clipId);
+            if (!clip) return;
 
-        const currentTime = VideoPlayer.getCurrentTime();
-        const duration = VideoPlayer.getDuration() || 3600;
-        const margin = 4;
-        const contextStart = Math.max(0, clip.start_sec - margin);
-        const contextEnd = Math.min(duration, clip.end_sec + margin);
-        const contextRange = Math.max(0.1, contextEnd - contextStart);
+            const currentTime = VideoPlayer.getCurrentTime();
+            const duration = VideoPlayer.getDuration() || 3600;
+            const margin = 4;
+            const contextStart = Math.max(0, clip.start_sec - margin);
+            const contextEnd = Math.min(duration, clip.end_sec + margin);
+            const contextRange = Math.max(0.1, contextEnd - contextStart);
 
-        const playhead = $('#clip-playhead');
-        const timeEl = $('#clip-playhead-time');
+            const playhead = $('#clip-playhead');
+            const timeEl = $('#clip-playhead-time');
 
-        if (currentTime >= (contextStart - 0.5) && currentTime <= (contextEnd + 0.5)) {
-            const perc = ((currentTime - contextStart) / contextRange) * 100;
-            if (playhead) {
-                playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
-                playhead.style.display = 'block';
+            if (currentTime >= (contextStart - 0.5) && currentTime <= (contextEnd + 0.5)) {
+                const perc = ((currentTime - contextStart) / contextRange) * 100;
+                if (playhead) {
+                    playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
+                    playhead.style.display = 'block';
+                }
+                if (timeEl) timeEl.textContent = formatTime(currentTime);
+            } else {
+                if (playhead) playhead.style.display = 'none';
             }
-            if (timeEl) timeEl.textContent = formatTime(currentTime);
-        } else {
-            if (playhead) playhead.style.display = 'none';
+        } catch (e) {
+            // Silently fail playhead update (often cross-origin errors)
         }
     }
 
@@ -1068,16 +1072,16 @@ const UI = (() => {
         btnView.classList.toggle('active', mode === 'view');
 
         if (mode === 'analyze') {
-            panelAnalyze.classList.remove('hidden');
-            panelView.classList.add('hidden');
-            tagBar.classList.remove('hidden');
+            if (panelAnalyze) panelAnalyze.classList.remove('hidden');
+            if (panelView) panelView.classList.add('hidden');
+            if (tagBar) tagBar.classList.remove('hidden');
             // Hide View action bar explicitly
             const viewBar = document.getElementById('view-action-bar');
             if (viewBar) viewBar.classList.add('hidden');
         } else { // mode === 'view'
-            panelAnalyze.classList.add('hidden');
-            panelView.classList.remove('hidden');
-            tagBar.classList.add('hidden');
+            if (panelAnalyze) panelAnalyze.classList.add('hidden');
+            if (panelView) panelView.classList.remove('hidden');
+            if (tagBar) tagBar.classList.add('hidden');
             // Show only if there's a clip
             const viewBar = document.getElementById('view-action-bar');
             if (viewBar) {

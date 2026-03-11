@@ -96,6 +96,11 @@ select {
   font-family: inherit;
 }
 
+/* ── Utilities ── */
+.hidden {
+  display: none !important;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;
