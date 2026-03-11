@@ -112,7 +112,11 @@
         UI.renderViewSources();
         UI.updateClipEditControls();
         if (game) {
-            YTPlayer.loadVideo(game.youtube_video_id);
+            if (game.local_video_url) {
+                YTPlayer.loadLocalVideo(game.local_video_url);
+            } else if (game.youtube_video_id) {
+                YTPlayer.loadVideo(game.youtube_video_id);
+            }
         }
     });
 
@@ -243,26 +247,44 @@
     $('#btn-save-game').addEventListener('click', () => {
         const title = $('#input-game-title').value.trim();
         const rawYtInput = $('#input-youtube-id').value.trim();
-        if (!title) { UI.toast('Ingresá un título', 'error'); return; }
-        if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
+        const localVideoInput = $('#input-local-video').files[0];
 
-        const ytId = extractYouTubeId(rawYtInput);
-        if (!ytId) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
+        if (!title) { UI.toast('Ingresá un título', 'error'); return; }
+        if (!rawYtInput && !localVideoInput) { UI.toast('Ingresá un link de YouTube o un video local', 'error'); return; }
+
+        let ytId = null;
+        let localVideoUrl = null;
+
+        if (localVideoInput) {
+            localVideoUrl = URL.createObjectURL(localVideoInput);
+        } else {
+            ytId = extractYouTubeId(rawYtInput);
+            if (!ytId) { UI.toast('No se pudo extraer el Video ID de YouTube', 'error'); return; }
+        }
 
         // Start a fresh project — clear old project's ID from State
         AppState.clearProject();
         DemoData.clear();
 
-        const game = AppState.addGame(title, ytId);
+        const game = AppState.addGame(title, ytId, localVideoUrl);
         AppState.setCurrentGame(game.id);
         UI.hideModal('modal-new-game');
+
         $('#input-game-title').value = '';
         $('#input-youtube-id').value = '';
+        $('#input-local-video').value = '';
 
         $('#btn-share-project').style.display = 'none'; // Hide share until saved
 
         UI.toast(`Proyecto creado: ${title}`, 'success');
         UI.refreshAll();
+
+        // Load the appropriate video
+        if (localVideoUrl) {
+            YTPlayer.loadLocalVideo(localVideoUrl);
+        } else if (ytId) {
+            YTPlayer.loadVideo(ytId);
+        }
     });
 
     // Panel collapse
@@ -438,8 +460,12 @@
                         UI.toast('Proyecto cargado ✅', 'success');
                         UI.refreshAll();
                         const game = AppState.getCurrentGame();
-                        if (game && game.youtube_video_id) {
-                            YTPlayer.loadVideo(game.youtube_video_id);
+                        if (game) {
+                            if (game.local_video_url) {
+                                YTPlayer.loadLocalVideo(game.local_video_url);
+                            } else if (game.youtube_video_id) {
+                                YTPlayer.loadVideo(game.youtube_video_id);
+                            }
                         }
                         const url = FirebaseData.getShareUrl(p.id);
                         window.history.replaceState({}, '', url);
@@ -926,6 +952,11 @@
         // Init state (loads whatever is in DemoData)
         AppState.init();
 
+        // Init timeline
+        if (typeof Timeline !== 'undefined') {
+            Timeline.init();
+        }
+
         // Init drawing tool
         if (typeof DrawingTool !== 'undefined') {
             DrawingTool.init();
@@ -975,8 +1006,12 @@
                 }
 
                 const game = AppState.getCurrentGame();
-                if (game && game.youtube_video_id) {
-                    YTPlayer.loadVideo(game.youtube_video_id);
+                if (game) {
+                    if (game.local_video_url) {
+                        YTPlayer.loadLocalVideo(game.local_video_url);
+                    } else if (game.youtube_video_id) {
+                        YTPlayer.loadVideo(game.youtube_video_id);
+                    }
                 }
 
                 if (modeFromUrl === 'view') {

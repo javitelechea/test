@@ -675,6 +675,117 @@ select {
   font-size: 1.1rem;
 }
 
+/* ── Custom Timeline ── */
+.custom-timeline {
+  position: relative;
+  height: 24px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  transition: background var(--tr-fast);
+}
+
+.custom-timeline:hover {
+  background: var(--bg-hover);
+}
+
+.timeline-track {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.timeline-progress {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  height: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ef4444;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.playhead-time {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ef4444;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.timeline-clips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.timeline-clip-segment {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  pointer-events: auto;
+  opacity: 0.7;
+}
+
+.timeline-clip-segment:hover {
+  opacity: 1;
+}
+
+.clip-stretch-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 14px;
+  background: white;
+  border-radius: 2px;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.clip-stretch-handle.left {
+  left: -3px;
+}
+
+.clip-stretch-handle.right {
+  right: -3px;
+}
+
 /* ── Tag Bar (below video) ── */
 .tag-bar {
   display: flex;
@@ -1117,20 +1228,34 @@ select {
 
 /* Clip actions row — hidden until hover */
 .clip-actions-row {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
-  flex-shrink: 0;
+  position: absolute;
+  right: 10px;
+  background: var(--bg-hover);
+  padding-left: 10px;
+  transition: opacity var(--tr-fast);
+  display: flex;
 }
 
 .clip-item:hover .clip-actions-row,
 .clip-item.active .clip-actions-row {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.clip-item.active .clip-actions-row {
+  background: var(--accent-glow);
+}
+
+.clip-flags-display {
+  transition: opacity var(--tr-fast);
 }
 
 .clip-item:hover .clip-flags-display {
-  display: none;
+  opacity: 0;
 }
 
 .clip-flag-toggle {

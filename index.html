@@ -114,6 +114,17 @@
           </div>
         </div>
       </div>
+
+      <!-- Custom Timeline -->
+      <div id="custom-timeline" class="custom-timeline hidden">
+        <div class="timeline-track"></div>
+        <div id="timeline-progress" class="timeline-progress"></div>
+        <div id="timeline-clips" class="timeline-clips"></div>
+        <div id="timeline-playhead" class="timeline-playhead">
+          <span id="playhead-time" class="playhead-time">0:00</span>
+        </div>
+      </div>
+
       <!-- Tag rows + Clip edit controls (visible in analyze mode) -->
       <div id="tag-bar" class="tag-bar hidden">
         <div class="tag-bar-header">
@@ -278,11 +289,15 @@
         Título
         <input id="input-game-title" type="text" class="input" placeholder="Ej: vs River Plate — Fecha 12" />
       </label>
+      <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin: 10px 0;">O</div>
       <label class="form-label">
-        YouTube Video ID
+        YouTube Video ID (Opcional si usás video local)
         <input id="input-youtube-id" type="text" class="input" placeholder="Pegá el link de YouTube acá" />
-        <span class="form-hint">Podés pegar el link completo (ej: https://www.youtube.com/watch?v=...) o solo el
-          ID</span>
+        <span class="form-hint">Podés pegar el link completo (ej: https://youtube.com/watch?v=...) o solo el ID</span>
+      </label>
+      <label class="form-label" style="margin-top: 15px;">
+        Video Local (Opcional si usás YouTube)
+        <input id="input-local-video" type="file" class="input" accept="video/mp4,video/webm,video/ogg" />
       </label>
       <div class="modal-actions">
         <button id="btn-cancel-game" class="btn btn-ghost">Cancelar</button>
@@ -381,7 +396,10 @@
   <script src="js/firebaseData.js"></script>
   <script src="js/state.js"></script>
   <script src="js/demoData.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/VideoPlayer.js"></script>
   <script src="js/youtubePlayer.js"></script>
+  <script src="js/timeline.js"></script>
   <script src="js/drawing.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

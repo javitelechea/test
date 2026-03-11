@@ -157,8 +157,8 @@ const AppState = (() => {
     emit('clipChanged', getCurrentClip());
   }
 
-  function addGame(title, youtubeVideoId) {
-    const game = DemoData.createGame(title, youtubeVideoId);
+  function addGame(title, youtubeVideoId, localVideoUrl = null) {
+    const game = DemoData.createGame(title, youtubeVideoId, localVideoUrl);
     state.games = DemoData.getGames();
     emit('gamesUpdated', state.games);
     return game;

@@ -1,83 +1,107 @@
 /* ═══════════════════════════════════════════
-   SimpleReplay — YouTube Player Wrapper
-   Uses YouTube IFrame API
+   SimpleReplay — YouTube/Local Player Wrapper
+   Provides a compatible YTPlayer interface while using VideoPlayer
    ═══════════════════════════════════════════ */
 
 const YTPlayer = (() => {
-    let player = null;
+    let _videoPlayer = null;
     let _ready = false;
     let _clipEndSec = null;
     let _pollTimer = null;
     let _onReadyCb = null;
 
-    // Load YouTube IFrame API
     function init() {
         return new Promise((resolve) => {
-            if (window.YT && window.YT.Player) {
-                _createPlayer(resolve);
-                return;
-            }
             _onReadyCb = resolve;
-            const tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api';
-            document.head.appendChild(tag);
 
-            // Timeout to prevent app hanging if API fails to load
-            setTimeout(() => {
-                if (!_ready) {
-                    console.warn('YouTube API timeout. Continuando inicialización.');
-                    resolve();
-                }
-            }, 3000);
-        });
-    }
-
-    // YouTube API calls this globally
-    window.onYouTubeIframeAPIReady = function () {
-        _createPlayer(_onReadyCb);
-    };
-
-    function _createPlayer(resolve) {
-        player = new YT.Player('youtube-player', {
-            height: '100%',
-            width: '100%',
-            playerVars: {
-                autoplay: 0,
-                controls: 1,
-                modestbranding: 1,
-                rel: 0,
-                iv_load_policy: 3,
-                fs: 1,
-                playsinline: 1,
-                origin: window.location.origin === "null" ? "*" : window.location.origin
-            },
-            events: {
-                onReady: () => {
-                    _ready = true;
-                    if (resolve) resolve();
-                },
-                onStateChange: _onStateChange,
+            // Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', _setupPlayer);
+            } else {
+                _setupPlayer();
             }
         });
     }
 
-    function _onStateChange(event) {
-        // If playing and we have a clip end, start polling
-        if (event.data === YT.PlayerState.PLAYING && _clipEndSec !== null) {
-            _startPoll();
+    function _setupPlayer() {
+        if (!document.getElementById('youtube-player')) {
+            console.warn('YTPlayer: youtube-player element not found');
+            return;
         }
-        if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
-            _stopPoll();
+
+        _videoPlayer = new VideoPlayer('youtube-player');
+        _ready = true;
+
+        if (_onReadyCb) {
+            _onReadyCb();
         }
+    }
+
+    function loadVideo(videoId) {
+        if (!_ready || !_videoPlayer) return;
+        _clipEndSec = null;
+        _stopPoll();
+
+        if (videoId) {
+            _videoPlayer.loadVideo({ type: 'youtube', id: videoId });
+        }
+    }
+
+    function loadLocalVideo(url) {
+        if (!_ready || !_videoPlayer) return;
+        _clipEndSec = null;
+        _stopPoll();
+
+        if (url) {
+            _videoPlayer.loadVideo({ type: 'local', url: url });
+        }
+    }
+
+    function seekTo(seconds) {
+        if (!_ready || !_videoPlayer) return;
+        _videoPlayer.seekTo(seconds);
+    }
+
+    function play() {
+        if (!_ready || !_videoPlayer) return;
+        _videoPlayer.play();
+    }
+
+    function pause() {
+        if (!_ready || !_videoPlayer) return;
+        _videoPlayer.pause();
+    }
+
+    function getCurrentTime() {
+        if (!_ready || !_videoPlayer) return 0;
+        return _videoPlayer.getCurrentTime() || 0;
+    }
+
+    function getDuration() {
+        if (!_ready || !_videoPlayer) return 0;
+        return _videoPlayer.getDuration() || 0;
+    }
+
+    function playClip(startSec, endSec) {
+        if (!_ready || !_videoPlayer) return;
+        _clipEndSec = endSec;
+        _videoPlayer.seekTo(startSec);
+        _videoPlayer.play();
+        _startPoll();
+    }
+
+    function clearClipEnd() {
+        _clipEndSec = null;
+        _stopPoll();
     }
 
     function _startPoll() {
         _stopPoll();
         _pollTimer = setInterval(() => {
-            if (!player || _clipEndSec === null) { _stopPoll(); return; }
-            const t = player.getCurrentTime();
+            if (!_videoPlayer || _clipEndSec === null) { _stopPoll(); return; }
+            const t = _videoPlayer.getCurrentTime();
             if (t >= _clipEndSec) {
-                player.pauseVideo();
+                _videoPlayer.pause();
                 _clipEndSec = null;
                 _stopPoll();
             }
@@ -88,53 +112,9 @@ const YTPlayer = (() => {
         if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
     }
 
-    function loadVideo(videoId) {
-        if (!_ready || !player) return;
-        _clipEndSec = null;
-        _stopPoll();
-        player.loadVideoById(videoId, 0);
-        setTimeout(() => { if (player) player.pauseVideo(); }, 500);
-    }
-
-    function seekTo(seconds) {
-        if (!_ready || !player) return;
-        player.seekTo(seconds, true);
-    }
-
-    function play() {
-        if (!_ready || !player) return;
-        player.playVideo();
-    }
-
-    function pause() {
-        if (!_ready || !player) return;
-        player.pauseVideo();
-    }
-
-    function getCurrentTime() {
-        if (!_ready || !player) return 0;
-        return player.getCurrentTime() || 0;
-    }
-
-    function playClip(startSec, endSec) {
-        if (!_ready || !player) return;
-        _clipEndSec = endSec;
-        player.seekTo(startSec, true);
-        player.playVideo();
-        _startPoll();
-    }
-
-    function clearClipEnd() {
-        _clipEndSec = null;
-        _stopPoll();
-    }
-
-    function getPlayerState() {
-        if (!_ready || !player) return -1;
-        return player.getPlayerState();
-    }
-
+    // Dummy for compatibility
+    function getPlayerState() { return -1; }
     function isReady() { return _ready; }
 
-    return { init, loadVideo, seekTo, play, pause, getCurrentTime, playClip, clearClipEnd, isReady, getPlayerState };
+    return { init, loadVideo, loadLocalVideo, seekTo, play, pause, getCurrentTime, getDuration, playClip, clearClipEnd, isReady, getPlayerState };
 })();

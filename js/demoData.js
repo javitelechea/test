@@ -95,11 +95,12 @@ const DemoData = (() => {
 
     function getGames() { return [...games]; }
 
-    function createGame(title, youtubeVideoId) {
+    function createGame(title, youtubeVideoId, localVideoUrl = null) {
         const g = {
             id: uuid(),
             title,
             youtube_video_id: youtubeVideoId,
+            local_video_url: localVideoUrl,
             created_by: 'demo-user-001',
             created_at: new Date().toISOString()
         };
