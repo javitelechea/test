@@ -72,9 +72,6 @@
     <section id="video-area">
       <div id="player-container">
         <div id="youtube-player"></div>
-        <video id="local-video" class="hidden"
-          style="width:100%;height:100%;max-height:100%;background:#000;object-fit:contain;" playsinline
-          controls></video>
         <div id="no-game-overlay" class="player-overlay">
           <div class="overlay-content">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -162,49 +159,19 @@
           </div>
         </div>
       </div>
-
-      <!-- [VIEW MODE] Clip Action Bar & Context Slider -->
-      <div id="view-action-bar" class="view-action-bar hidden">
-        <div id="clip-context-container" class="clip-context-container">
-          <div class="context-time-label" id="context-start-time">00:00</div>
-          <div id="clip-context-slider" class="clip-context-slider">
-            <div id="clip-range-highlight" class="clip-range-highlight">
-              <div class="resize-handle handle-left" data-handle="start"></div>
-              <div class="resize-handle handle-right" data-handle="end"></div>
-            </div>
-            <div id="clip-playhead" class="clip-playhead">
-              <span id="clip-playhead-time" class="playhead-time">00:00</span>
-            </div>
-          </div>
-          <div class="context-time-label" id="context-end-time">00:00</div>
-        </div>
-
-        <div class="view-action-buttons">
-          <div class="view-action-group" id="view-inline-flags">
-            <!-- Inline flags will be rendered here -->
-          </div>
-          <div class="view-action-group">
-            <span class="ctrl-label" style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.8;">IN:</span>
-            <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
-            <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
-            <span class="ctrl-separator" style="margin: 0 4px; opacity: 0.3;">|</span>
-            <span class="ctrl-label" style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.8;">OUT:</span>
-            <button class="btn btn-xs btn-outline" data-action="out-minus">−1s</button>
-            <button class="btn btn-xs btn-outline" data-action="out-plus">+1s</button>
-            <span class="ctrl-separator" style="margin: 0 8px; opacity: 0.3;">|</span>
-            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-draw" title="Dibujar">🖌️
-              Dibujar</button>
-            <button class="btn btn-sm btn-outline btn-view-action" id="btn-view-chat" title="Chat">💬 Chat</button>
-            <button class="btn btn-sm btn-primary btn-view-action" id="btn-view-export" title="Exportar MP4">📥
-              Exportar</button>
-            <span class="ctrl-separator">|</span>
-            <button class="btn btn-sm btn-ghost" id="btn-view-delete" title="Eliminar clip">🗑️</button>
-          </div>
-        </div>
+      <!-- Clip Edit Controls (visible in both modes when a clip is selected) -->
+      <div class="clip-edit-group" id="clip-edit-controls"
+        style="display:none; padding: 6px var(--sp-md); background: var(--bg-secondary); border-top: 1px solid var(--border);">
+        <span class="ctrl-label">IN:</span>
+        <button class="btn btn-xs btn-outline" data-action="in-minus">−1s</button>
+        <button class="btn btn-xs btn-outline" data-action="in-plus">+1s</button>
+        <span class="ctrl-separator">|</span>
+        <span class="ctrl-label">OUT:</span>
+        <button class="btn btn-xs btn-outline" data-action="out-minus">−1s</button>
+        <button class="btn btn-xs btn-outline" data-action="out-plus">+1s</button>
+        <span class="ctrl-separator">|</span>
+        <button class="btn btn-xs btn-danger" data-action="delete-clip">🗑️</button>
       </div>
-      </div>
-      </div>
-
     </section>
 
     <!-- Side Panel -->
@@ -290,10 +257,7 @@
           <!-- Selection action bar -->
           <div id="view-selection-bar" class="view-selection-bar" style="display:none;">
             <span><span id="view-selected-count">0</span> seleccionados</span>
-            <div style="display: flex; gap: 8px;">
-              <button id="btn-add-selected-to-playlist" class="btn btn-xs btn-primary">📋 A playlist</button>
-              <button id="btn-delete-selected" class="btn btn-xs btn-danger">🗑️ Borrar</button>
-            </div>
+            <button id="btn-add-selected-to-playlist" class="btn btn-xs btn-primary">📋 Agregar a playlist</button>
           </div>
         </div>
         <div class="panel-actions">
@@ -310,82 +274,19 @@
     <div class="modal-backdrop"></div>
     <div class="modal-box">
       <h2>Nuevo Proyecto</h2>
-
-      <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Título</label>
-        <input id="input-game-title" type="text" class="input" placeholder="Ej: vs River Plate — Fecha 12"
-          style="width:100%;" />
-      </div>
-
-      <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Tipo de Video</label>
-        <div class="video-type-toggle" style="display:flex; gap:16px;">
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
-            <input type="radio" name="video-type" value="youtube" checked> YouTube
-          </label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
-            <input type="radio" name="video-type" value="local"> Local
-          </label>
-        </div>
-      </div>
-
-      <div id="group-yt-id" class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">YouTube Video ID</label>
-        <input id="input-youtube-id" type="text" class="input" placeholder="Pegá el link o ID de YouTube acá"
-          style="width:100%;" />
-        <span class="form-hint" style="font-size:0.75rem; color:var(--text-muted);">Podés pegar el link completo o solo
-          el ID</span>
-      </div>
-
-      <div id="group-local-file" class="form-group hidden" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Archivo Local</label>
-        <input id="input-local-file" type="file" accept="video/*" style="width:100%; font-size:0.85rem;" />
-        <span class="form-hint" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;">Nota:
-          Requerirá re-seleccionar al abrir el proyecto.</span>
-      </div>
-
+      <label class="form-label">
+        Título
+        <input id="input-game-title" type="text" class="input" placeholder="Ej: vs River Plate — Fecha 12" />
+      </label>
+      <label class="form-label">
+        YouTube Video ID
+        <input id="input-youtube-id" type="text" class="input" placeholder="Pegá el link de YouTube acá" />
+        <span class="form-hint">Podés pegar el link completo (ej: https://www.youtube.com/watch?v=...) o solo el
+          ID</span>
+      </label>
       <div class="modal-actions">
         <button id="btn-cancel-game" class="btn btn-ghost">Cancelar</button>
         <button id="btn-save-game" class="btn btn-primary">Crear proyecto</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="modal-edit-video" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-box">
-      <h2>Editar Proyecto</h2>
-
-      <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Título</label>
-        <input id="input-edit-title" type="text" class="input" placeholder="Nombre del proyecto" style="width:100%;" />
-      </div>
-
-      <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Tipo de Video</label>
-        <div class="video-type-toggle" style="display:flex; gap:16px;">
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
-            <input type="radio" id="edit-video-yt" name="edit-video-type" value="youtube" checked> YouTube
-          </label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.9rem; cursor:pointer;">
-            <input type="radio" id="edit-video-local" name="edit-video-type" value="local"> Local
-          </label>
-        </div>
-      </div>
-
-      <div id="group-edit-yt" class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">YouTube Video ID</label>
-        <input id="input-edit-yt" type="text" class="input" placeholder="ID o link de YouTube" style="width:100%;" />
-      </div>
-
-      <div id="group-edit-local" class="form-group hidden" style="margin-bottom: 12px;">
-        <label class="form-label" style="display:block; margin-bottom:4px;">Archivo Local</label>
-        <input id="input-edit-local" type="file" accept="video/*" style="width:100%; font-size:0.85rem;" />
-      </div>
-
-      <div class="modal-actions">
-        <button id="btn-cancel-edit-video" class="btn btn-ghost">Cancelar</button>
-        <button id="btn-save-edit-video" class="btn btn-primary">Guardar cambios</button>
       </div>
     </div>
   </div>
@@ -472,37 +373,15 @@
     </div>
   </div>
 
-  <!-- Export Progress Modal -->
-  <div id="modal-export-progress" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-box" style="max-width: 400px; text-align: center;">
-      <h3 id="export-title">Exportando...</h3>
-      <p id="export-status" style="font-size: 0.9rem; color: var(--text-muted); margin: 10px 0;">Procesando clip, por
-        favor esperá.</p>
-
-      <div class="progress-wrapper"
-        style="background: rgba(255,255,255,0.1); height: 10px; border-radius: 5px; overflow: hidden; margin: 20px 0;">
-        <div id="export-progress-bar"
-          style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
-      </div>
-
-      <div id="export-info" style="font-size: 0.8rem; margin-bottom: 15px;">0% completo</div>
-
-      <p style="font-size: 0.75rem; color: var(--accent); opacity: 0.8;">No cierres la pestaña hasta que termine.</p>
-    </div>
-  </div>
-
   <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://unpkg.com/mp4-muxer"></script>
 
   <!-- App Scripts -->
   <script src="js/firebaseData.js"></script>
   <script src="js/state.js"></script>
-  <script src="js/VideoPlayer.js"></script>
-  <script src="js/export.js"></script>
   <script src="js/demoData.js"></script>
+  <script src="js/youtubePlayer.js"></script>
   <script src="js/drawing.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

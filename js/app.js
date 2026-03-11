@@ -42,17 +42,8 @@
 
     // Mark as unsaved when anything editable changes
     const markUnsaved = () => hasUnsavedChanges = true;
-    AppState.on('clipChanged', (clip) => {
-        markUnsaved();
-        if (typeof UI.updateViewActionBar === 'function') UI.updateViewActionBar();
-        if (typeof UI.renderViewClips === 'function') UI.renderViewClips(AppState.getFilteredClips());
-    });
-    AppState.on('clipsUpdated', (clips) => {
-        markUnsaved();
-        if (typeof UI.renderViewClips === 'function') {
-            UI.renderViewClips(AppState.getFilteredClips());
-        }
-    });
+    AppState.on('clipChanged', markUnsaved);
+    AppState.on('clipsUpdated', markUnsaved);
     AppState.on('playlistsUpdated', markUnsaved);
     AppState.on('flagsUpdated', markUnsaved);
     AppState.on('clipCommentsUpdated', markUnsaved);
@@ -121,7 +112,7 @@
         UI.renderViewSources();
         UI.updateClipEditControls();
         if (game) {
-            VideoPlayer.loadVideo(game.youtube_video_id);
+            YTPlayer.loadVideo(game.youtube_video_id);
         }
     });
 
@@ -236,97 +227,7 @@
     $('#btn-new-game').addEventListener('click', () => {
         $('#modal-new-game').classList.remove('hidden');
         $('#input-game-title').focus();
-        // Force reset toggle visibility
-        document.querySelector('input[name="video-type"][value="youtube"]').checked = true;
-        $('#group-yt-id').classList.remove('hidden');
-        $('#group-local-file').classList.add('hidden');
     });
-
-    // View Mode Action Bar Buttons
-    if ($('#btn-view-draw')) {
-        $('#btn-view-draw').addEventListener('click', () => {
-            const clipId = AppState.get('currentClipId');
-            const playlistId = AppState.get('activePlaylistId');
-            if (clipId && typeof DrawingTool !== 'undefined') {
-                if (playlistId) {
-                    DrawingTool.open(playlistId, clipId);
-                } else {
-                    UI.toast('Necesitas estar en una playlist para dibujar', 'warning');
-                }
-            }
-        });
-    }
-
-    if ($('#btn-view-chat')) {
-        $('#btn-view-chat').addEventListener('click', (e) => {
-            const clipId = AppState.get('currentClipId');
-            const playlistId = AppState.get('activePlaylistId');
-            if (clipId) {
-                if (!playlistId) {
-                    UI.toast('Necesitas estar en una playlist para chatear', 'warning');
-                    return;
-                }
-                const btn = e.currentTarget;
-                if (typeof UI.toggleChatPanel === 'function') {
-                    UI.toggleChatPanel(btn, clipId, playlistId, document.body, () => {
-                        if (typeof UI.updateViewActionBar === 'function') {
-                            UI.updateViewActionBar();
-                        } else {
-                            // fallback refresh
-                            AppState.updateClip(clipId, {});
-                        }
-                    });
-                } else {
-                    UI.toast('Chat no disponible temporalmente', 'warning');
-                }
-            }
-        });
-    }
-
-    if ($('#btn-view-delete')) {
-        $('#btn-view-delete').addEventListener('click', () => {
-            const clipId = AppState.get('currentClipId');
-            if (clipId) {
-                AppState.deleteClip(clipId);
-                UI.toast('Clip eliminado', 'success');
-            }
-        });
-    }
-
-    // Connect View Mode Action Bar IN/OUT buttons
-    const viewActionBar = $('#view-action-bar');
-    if (viewActionBar) {
-        viewActionBar.querySelectorAll('button[data-action]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const action = btn.dataset.action;
-                const clip = AppState.getCurrentClip();
-                if (!clip) return;
-                let { start_sec, end_sec } = clip;
-                const minDur = 1;
-                const maxDur = VideoPlayer.getDuration() || 3600;
-
-                if (action === 'in-minus') start_sec = Math.max(0, start_sec - 1);
-                if (action === 'in-plus') start_sec = Math.min(end_sec - minDur, start_sec + 1);
-                if (action === 'out-minus') end_sec = Math.max(start_sec + minDur, end_sec - 1);
-                if (action === 'out-plus') end_sec = Math.min(maxDur, end_sec + 1);
-
-                AppState.updateClip(clip.id, { start_sec, end_sec });
-                VideoPlayer.seekTo(action.startsWith('in') ? start_sec : end_sec);
-
-                // Force a sync if events fail
-                if (typeof UI.updateViewActionBar === 'function') UI.updateViewActionBar();
-                if (typeof UI.renderViewClips === 'function') UI.renderViewClips(AppState.getFilteredClips());
-            });
-        });
-    }
-
-    if ($('#btn-view-export')) {
-        $('#btn-view-export').addEventListener('click', () => {
-            const clipId = AppState.get('currentClipId');
-            const clip = AppState.get('clips').find(c => c.id === clipId);
-            if (clip) ExportTool.exportClip(clip);
-        });
-    }
 
     $('#btn-cancel-game').addEventListener('click', () => {
         UI.hideModal('modal-new-game');
@@ -339,115 +240,26 @@
         });
     });
 
-    // Modal Video Type Toggle
-    document.querySelectorAll('input[name="video-type"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const isLocal = e.target.value === 'local';
-            $('#group-yt-id').classList.toggle('hidden', isLocal);
-            $('#group-local-file').classList.toggle('hidden', !isLocal);
-        });
-    });
-
-    // Edit project modal
-    let _editingProjectId = null;
-
-    document.querySelectorAll('input[name="edit-video-type"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const isLocal = e.target.value === 'local';
-            $('#group-edit-yt').classList.toggle('hidden', isLocal);
-            $('#group-edit-local').classList.toggle('hidden', !isLocal);
-        });
-    });
-
-    $('#btn-cancel-edit-video').addEventListener('click', () => {
-        UI.hideModal('modal-edit-video');
-        _editingProjectId = null;
-    });
-
-    $('#btn-save-edit-video').addEventListener('click', async () => {
-        if (!_editingProjectId) return;
-        const title = $('#input-edit-title').value.trim();
-        const videoType = document.querySelector('input[name="edit-video-type"]:checked').value;
-        let source = '';
-
-        if (!title) { UI.toast('Ingresá un título', 'error'); return; }
-
-        if (videoType === 'youtube') {
-            const rawYtInput = $('#input-edit-yt').value.trim();
-            if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
-            source = extractYouTubeId(rawYtInput);
-        } else {
-            const fileInput = $('#input-edit-local');
-            if (fileInput.files && fileInput.files.length > 0) {
-                source = URL.createObjectURL(fileInput.files[0]);
-            } else {
-                // Keep old source if no new file selected and was already local?
-                // Actually, if they switch to local they MUST select a file.
-                // If they were already local, they might want to just change title.
-                const game = AppState.get('games').find(g => g.id === _editingProjectId);
-                if (game && game.videoType === 'local') {
-                    source = game.youtube_video_id;
-                } else {
-                    UI.toast('Seleccioná un archivo de video', 'error');
-                    return;
-                }
-            }
-        }
-
-        await FirebaseData.renameProject(_editingProjectId, title);
-        await FirebaseData.updateProjectVideo(_editingProjectId, source, videoType);
-
-        UI.hideModal('modal-edit-video');
-        UI.toast('Proyecto actualizado', 'success');
-
-        // If current game was edited, refresh current state
-        if (AppState.get('currentProjectId') === _editingProjectId) {
-            await AppState.loadFromCloud(_editingProjectId);
-            UI.refreshAll();
-            VideoPlayer.loadVideo(source, videoType);
-        }
-
-        $('#btn-my-projects').click(); // Refresh projects list
-        _editingProjectId = null;
-    });
-
-    $('#btn-save-game').addEventListener('click', async () => {
+    $('#btn-save-game').addEventListener('click', () => {
         const title = $('#input-game-title').value.trim();
-        const videoType = document.querySelector('input[name="video-type"]:checked').value;
-        let source = '';
-
+        const rawYtInput = $('#input-youtube-id').value.trim();
         if (!title) { UI.toast('Ingresá un título', 'error'); return; }
+        if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
 
-        if (videoType === 'youtube') {
-            const rawYtInput = $('#input-youtube-id').value.trim();
-            if (!rawYtInput) { UI.toast('Ingresá un link o ID de YouTube', 'error'); return; }
-            source = extractYouTubeId(rawYtInput);
-            if (!source) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
-        } else {
-            const fileInput = $('#input-local-file');
-            if (!fileInput.files || fileInput.files.length === 0) {
-                UI.toast('Seleccioná un archivo de video', 'error');
-                return;
-            }
-            const file = fileInput.files[0];
-            source = URL.createObjectURL(file);
-        }
+        const ytId = extractYouTubeId(rawYtInput);
+        if (!ytId) { UI.toast('No se pudo extraer el Video ID', 'error'); return; }
 
-        // Start a fresh project
+        // Start a fresh project — clear old project's ID from State
         AppState.clearProject();
         DemoData.clear();
 
-        const game = AppState.addGame(title, source, videoType);
-
+        const game = AppState.addGame(title, ytId);
         AppState.setCurrentGame(game.id);
         UI.hideModal('modal-new-game');
-
-        // Reset form
         $('#input-game-title').value = '';
         $('#input-youtube-id').value = '';
-        $('#input-local-file').value = '';
 
-        $('#btn-share-project').style.display = 'none';
+        $('#btn-share-project').style.display = 'none'; // Hide share until saved
 
         UI.toast(`Proyecto creado: ${title}`, 'success');
         UI.refreshAll();
@@ -526,18 +338,6 @@
         UI.showAddToPlaylistModal(selected);
     });
 
-    // Delete selected clips (View mode multi-select)
-    $('#btn-delete-selected').addEventListener('click', () => {
-        const selected = UI.getSelectedClipIds();
-        if (selected.length === 0) { UI.toast('Seleccioná al menos un clip', 'error'); return; }
-
-        if (confirm(`¿Estás seguro de que querés eliminar ${selected.length} clips?`)) {
-            selected.forEach(id => AppState.deleteClip(id));
-            UI.clearClipSelection();
-            UI.toast('Clips eliminados', 'success');
-        }
-    });
-
     // Create playlist from modal
     $('#btn-create-playlist-modal').addEventListener('click', () => {
         const nameInput = $('#new-playlist-name-modal');
@@ -604,85 +404,19 @@
                     <div class="project-title" style="font-weight:500;font-size:0.9rem;">${p.title}</div>
                     <div class="project-date" style="font-size:0.75rem;color:var(--text-muted);">${dateStr}</div>
                 `;
-                info.addEventListener('click', () => loadBtn.click());
 
                 const actions = document.createElement('div');
                 actions.className = 'project-actions';
-                actions.style.display = 'flex';
-                actions.style.gap = '4px';
-
-                if (!p.isShared) {
-                    // Rename btn
-                    const renameBtn = document.createElement('button');
-                    renameBtn.className = 'btn btn-xs btn-ghost';
-                    renameBtn.innerHTML = '✏️';
-                    renameBtn.title = 'Renombrar';
-                    renameBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const newTitle = prompt('Nuevo nombre:', p.title);
-                        if (newTitle && newTitle.trim()) {
-                            await FirebaseData.renameProject(p.id, newTitle.trim());
-                            UI.toast('Proyecto renombrado', 'success');
-                            $('#btn-my-projects').click(); // Refresh list
-                        }
-                    });
-                    actions.appendChild(renameBtn);
-
-                    // Duplicate btn
-                    const duplicateBtn = document.createElement('button');
-                    duplicateBtn.className = 'btn btn-xs btn-ghost';
-                    duplicateBtn.innerHTML = '👯';
-                    duplicateBtn.title = 'Duplicar';
-                    duplicateBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        UI.toast('Duplicando...', '');
-                        const newId = await FirebaseData.duplicateProject(p.id);
-                        if (newId) {
-                            FirebaseData.addProjectLocally(newId, false);
-                            UI.toast('Proyecto duplicado', 'success');
-                            setTimeout(() => {
-                                $('#btn-my-projects').click(); // Refresh list
-                            }, 1000);
-                        } else {
-                            UI.toast('Error al duplicar', 'error');
-                        }
-                    });
-                    actions.appendChild(duplicateBtn);
-
-                    // Edit Video btn
-                    const editVideoBtn = document.createElement('button');
-                    editVideoBtn.className = 'btn btn-xs btn-ghost';
-                    editVideoBtn.innerHTML = '🎞️';
-                    editVideoBtn.title = 'Cambiar Video';
-                    editVideoBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        _editingProjectId = p.id;
-                        $('#modal-edit-video').classList.remove('hidden');
-                        $('#input-edit-title').value = p.title;
-                        const isYT = !p.youtube_video_id.startsWith('blob:');
-                        if (isYT) {
-                            $('#edit-video-yt').checked = true;
-                            $('#input-edit-yt').value = p.youtube_video_id;
-                        } else {
-                            $('#edit-video-local').checked = true;
-                        }
-                        // Trigger toggle visibility
-                        $('#edit-video-yt').dispatchEvent(new Event('change'));
-                    });
-                    actions.appendChild(editVideoBtn);
-                }
 
                 // Share btn
                 const shareBtn = document.createElement('button');
                 shareBtn.className = 'btn btn-xs btn-share project-share-btn';
                 shareBtn.innerHTML = '🔗';
                 shareBtn.title = 'Compartir link';
-                shareBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
+                shareBtn.addEventListener('click', () => {
                     _pendingShareUrlBase = FirebaseData.getShareUrl(p.id);
                     UI.showModal('modal-share-options');
                 });
-                actions.appendChild(shareBtn);
 
                 // Load btn
                 const loadBtn = document.createElement('button');
@@ -705,7 +439,7 @@
                         UI.refreshAll();
                         const game = AppState.getCurrentGame();
                         if (game && game.youtube_video_id) {
-                            VideoPlayer.loadVideo(game.youtube_video_id, game.videoType || 'youtube');
+                            YTPlayer.loadVideo(game.youtube_video_id);
                         }
                         const url = FirebaseData.getShareUrl(p.id);
                         window.history.replaceState({}, '', url);
@@ -761,13 +495,13 @@
     $('#btn-prev-clip').addEventListener('click', () => {
         AppState.navigateClip('prev');
         const clip = AppState.getCurrentClip();
-        if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+        if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
     });
 
     $('#btn-next-clip').addEventListener('click', () => {
         AppState.navigateClip('next');
         const clip = AppState.getCurrentClip();
-        if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+        if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
     });
 
     // ═══════════════════════════════════════
@@ -781,11 +515,11 @@
         // Spacebar: exclusively toggle play/pause to avoid accidental button clicks
         if (e.key === ' ') {
             e.preventDefault();
-            const playerState = VideoPlayer.getPlayerState();
+            const playerState = YTPlayer.getPlayerState();
             if (playerState === 1) { // playing
-                VideoPlayer.pause();
+                YTPlayer.pause();
             } else {
-                VideoPlayer.play();
+                YTPlayer.play();
             }
             return;
         }
@@ -796,14 +530,14 @@
         if (mode === 'analyze') {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                const t = VideoPlayer.getCurrentTime();
-                VideoPlayer.seekTo(Math.max(0, t - 5));
+                const t = YTPlayer.getCurrentTime();
+                YTPlayer.seekTo(Math.max(0, t - 5));
                 return;
             }
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                const t = VideoPlayer.getCurrentTime();
-                VideoPlayer.seekTo(t + 5);
+                const t = YTPlayer.getCurrentTime();
+                YTPlayer.seekTo(t + 5);
                 return;
             }
 
@@ -823,14 +557,14 @@
                 e.preventDefault();
                 AppState.navigateClip('prev');
                 const clip = AppState.getCurrentClip();
-                if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+                if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
                 return;
             }
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 AppState.navigateClip('next');
                 const clip = AppState.getCurrentClip();
-                if (clip) VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+                if (clip) YTPlayer.playClip(clip.start_sec, clip.end_sec);
                 return;
             }
 
@@ -1177,12 +911,6 @@
     // ═══════════════════════════════════════
 
     async function init() {
-        if (VideoPlayer.onTimeUpdate) {
-            VideoPlayer.onTimeUpdate((time) => {
-                UI.updateClipPlayhead();
-            });
-        }
-
         // Check if loading a shared project from URL
         const projectIdFromUrl = FirebaseData.getProjectIdFromUrl();
         const playlistIdFromUrl = FirebaseData.getPlaylistIdFromUrl();
@@ -1205,7 +933,7 @@
 
         // Init YouTube Player safely (handles file:// origin errors cleanly)
         try {
-            await VideoPlayer.init();
+            await YTPlayer.init();
         } catch (e) {
             console.warn('YouTube Player no se pudo iniciar inmediatamente (común en file://).', e);
         }
@@ -1248,11 +976,7 @@
 
                 const game = AppState.getCurrentGame();
                 if (game && game.youtube_video_id) {
-                    // Detect if source is a local blob or a potential YouTube ID
-                    const isYT = !game.youtube_video_id.startsWith('blob:') &&
-                        !game.youtube_video_id.startsWith('data:') &&
-                        game.youtube_video_id.length < 30; // 30 is a safe margin for YT IDs/links
-                    VideoPlayer.loadVideo(game.youtube_video_id, isYT ? 'youtube' : 'local');
+                    YTPlayer.loadVideo(game.youtube_video_id);
                 }
 
                 if (modeFromUrl === 'view') {
@@ -1287,15 +1011,6 @@
 
         // Render initial UI
         UI.refreshAll();
-
-        // ════ Robust Playhead Loop ════
-        // Forces UI.updateClipPlayhead even if VideoPlayer events miss
-        setInterval(() => {
-            const mode = AppState.get('mode');
-            if (mode === 'view' && typeof UI.updateClipPlayhead === 'function') {
-                UI.updateClipPlayhead();
-            }
-        }, 100);
     }
 
     init();

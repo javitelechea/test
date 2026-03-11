@@ -86,8 +86,7 @@ const UI = (() => {
 
             btn.className = 'tag-btn' + (isRival ? ' tag-btn-rival' : '') +
                 (_tagEditMode ? ' tag-edit-mode' : '') +
-                (_editingTagId === tag.id ? ' tag-editing' : '') +
-                ` tag-${tag.key}`;
+                (_editingTagId === tag.id ? ' tag-editing' : '');
             btn.dataset.tagId = tag.id;
 
             if (hotkey) {
@@ -111,7 +110,7 @@ const UI = (() => {
                     toast('Primero seleccioná un partido', 'error');
                     return;
                 }
-                const tSec = Math.round(VideoPlayer.getCurrentTime());
+                const tSec = Math.round(YTPlayer.getCurrentTime());
                 const clip = AppState.addClip(tag.id, tSec);
                 if (clip) {
                     btn.classList.add('tag-flash');
@@ -165,9 +164,6 @@ const UI = (() => {
                 // Create popover
                 const popover = document.createElement('div');
                 popover.className = 'flag-popover';
-                if (btn.closest('#view-action-bar')) {
-                    popover.classList.add('flag-popover-up');
-                }
                 const allFlags = ['bueno', 'acorregir', 'duda', 'importante'];
                 const currentFlags = AppState.getClipUserFlags(clipId);
                 popover.innerHTML = allFlags.map(flag => {
@@ -256,90 +252,63 @@ const UI = (() => {
         </div>`;
     }
 
-    function toggleChatPanel(btn, clipId, playlistId, container, rerenderFn) {
-        if (!playlistId) return; // Chat only in playlists
-        const parentEl = btn.closest('.clip-item') || btn.closest('.view-clip-item') || $('#view-action-bar');
-        if (!parentEl) return;
-        const existing = parentEl.querySelector('.clip-chat-panel');
-        if (existing) {
-            existing.remove();
-        } else {
-            // Close any other open chat
-            if (container) container.querySelectorAll('.clip-chat-panel').forEach(p => p.remove());
-            parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
-            // Focus text input
-            const textInput = parentEl.querySelector('.chat-text-input');
-            if (textInput) textInput.focus();
-            // Send handler
-            const sendBtn = parentEl.querySelector('.chat-send-btn');
-            const nameInput = parentEl.querySelector('.chat-name-input');
-            const panel = parentEl.querySelector('.clip-chat-panel');
-            const closeChat = (ev) => {
-                if (panel && !panel.contains(ev.target) && !btn.contains(ev.target)) {
-                    panel.remove();
-                    document.removeEventListener('click', closeChat);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', closeChat), 10);
-
-            const sendMessage = async () => {
-                const name = nameInput.value.trim();
-                const text = textInput.value.trim();
-                if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
-                if (!text) return;
-
-                // Block double-send
-                if (sendBtn.disabled) return;
-                sendBtn.disabled = true;
-
-                localStorage.setItem('sr_chat_name', name);
-
-                // Immediate feedback
-                textInput.value = '';
-                const messagesCont = panel.querySelector('.chat-messages');
-                if (messagesCont) {
-                    const tempMsg = document.createElement('div');
-                    tempMsg.className = 'chat-message';
-                    tempMsg.innerHTML = `<span class="chat-name">${name}:</span>${text}<span class="chat-time">ahora</span>`;
-                    messagesCont.appendChild(tempMsg);
-                    messagesCont.scrollTop = messagesCont.scrollHeight;
-                }
-
-                await AppState.addComment(playlistId, clipId, name, text);
-
-                sendBtn.disabled = false;
-                if (rerenderFn) rerenderFn();
-            };
-            sendBtn.addEventListener('click', sendMessage);
-            textInput.addEventListener('keydown', (ev) => {
-                if (ev.key === 'Enter') {
-                    ev.preventDefault();
-                    sendMessage();
-                }
-            });
-        }
-    }
-
     function attachChatHandlers(container, rerenderFn) {
         // Toggle chat panel
         container.querySelectorAll('.clip-chat-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                toggleChatPanel(btn, btn.dataset.clipId, btn.dataset.playlistId, container, rerenderFn);
-            });
-        });
+                const clipId = btn.dataset.clipId;
+                const playlistId = btn.dataset.playlistId;
+                if (!playlistId) return; // Chat only in playlists
+                const parentEl = btn.closest('.clip-item');
+                const existing = parentEl.querySelector('.clip-chat-panel');
+                if (existing) {
+                    existing.remove();
+                } else {
+                    // Close any other open chat
+                    container.querySelectorAll('.clip-chat-panel').forEach(p => p.remove());
+                    parentEl.insertAdjacentHTML('beforeend', buildChatPanel(playlistId, clipId));
+                    // Focus text input
+                    const textInput = parentEl.querySelector('.chat-text-input');
+                    if (textInput) textInput.focus();
+                    // Send handler
+                    const sendBtn = parentEl.querySelector('.chat-send-btn');
+                    const nameInput = parentEl.querySelector('.chat-name-input');
+                    const panel = parentEl.querySelector('.clip-chat-panel');
+                    const closeChat = (ev) => {
+                        if (panel && !panel.contains(ev.target) && !btn.contains(ev.target)) {
+                            panel.remove();
+                            document.removeEventListener('click', closeChat);
+                        }
+                    };
+                    setTimeout(() => document.addEventListener('click', closeChat), 10);
 
-        // Drawing thumbnail click handlers
-        // Assuming there might be a panel defined elsewhere or this needs to be scoped to the chat panel creation
-        // but since panel is not defined here in the outer scope, we remove or fix this block.
-        // Actually this block belongs INSIDE the chat panel creation or needs to find panels first.
-        container.querySelectorAll('.clip-chat-panel .drawing-thumb-wrap').forEach(thumb => {
-            thumb.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const drawingData = thumb.dataset.drawing;
-                const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
-                if (drawingData && typeof DrawingTool !== 'undefined') {
-                    DrawingTool.showDrawingOverlay(drawingData, videoTime);
+                    const sendMessage = () => {
+                        const name = nameInput.value.trim();
+                        const text = textInput.value.trim();
+                        if (!name) { toast('Escribí tu nombre', 'error'); nameInput.focus(); return; }
+                        if (!text) return;
+                        localStorage.setItem('sr_chat_name', name);
+                        AppState.addComment(playlistId, clipId, name, text);
+                        document.removeEventListener('click', closeChat);
+                        rerenderFn();
+                    };
+                    sendBtn.addEventListener('click', sendMessage);
+                    textInput.addEventListener('keydown', (ev) => {
+                        if (ev.key === 'Enter') { ev.preventDefault(); sendMessage(); }
+                    });
+
+                    // Drawing thumbnail click handlers
+                    panel.querySelectorAll('.drawing-thumb-wrap').forEach(thumb => {
+                        thumb.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const drawingData = thumb.dataset.drawing;
+                            const videoTime = thumb.dataset.videoTime ? parseFloat(thumb.dataset.videoTime) : null;
+                            if (drawingData && typeof DrawingTool !== 'undefined') {
+                                DrawingTool.showDrawingOverlay(drawingData, videoTime);
+                            }
+                        });
+                    });
                 }
             });
         });
@@ -361,7 +330,7 @@ const UI = (() => {
     // ═══ CLIP LIST (Analyze) ═══
     function renderAnalyzeClips() {
         const container = $('#analyze-clip-list');
-        const clips = AppState.getFilteredClips();
+        const clips = AppState.get('clips');
         const currentClipId = AppState.get('currentClipId');
 
         container.innerHTML = '';
@@ -377,24 +346,28 @@ const UI = (() => {
             const clipNum = AppState.getClipNumber(clip);
             const flags = AppState.getClipUserFlags(clip.id);
             const el = document.createElement('div');
-            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '') +
-                (tag ? ` tag-${tag.key}` : '');
+            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
             el.dataset.clipId = clip.id;
 
             const isRival = tag && tag.row === 'bottom';
             const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
+            const flagBtnHtml = buildFlagButton(clip.id, flags);
             const urlParams = new URLSearchParams(window.location.search);
             const isReadOnly = urlParams.get('mode') === 'view';
 
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
 
+            let playlistBtnHtml = '';
+            if (!isReadOnly) {
+                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+            }
+
             el.innerHTML = `
         <span class="${badgeClass}">${tagLabel}</span>
         <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
         <span class="clip-item-spacer"></span>
-        ${buildFlagButton(clip.id, flags)}
-        ${!isReadOnly ? `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>` : ''}
-        ${VideoPlayer.getType() === 'local' ? `<button class="clip-action-icon clip-export-btn" data-clip-id="${clip.id}" title="Exportar clip">⬇️</button>` : ''}
+        ${flagBtnHtml}
+        ${playlistBtnHtml}
         <button class="clip-action-icon clip-delete-btn" data-clip-id="${clip.id}" title="Eliminar clip">🗑️</button>
       `;
 
@@ -403,7 +376,7 @@ const UI = (() => {
                 if (e.target.closest('.flag-popover')) return;
                 if (e.target.closest('.clip-action-icon')) return;
                 AppState.setCurrentClip(clip.id);
-                VideoPlayer.playClip(clip.start_sec, clip.end_sec);
+                YTPlayer.playClip(clip.start_sec, clip.end_sec);
             });
 
             container.appendChild(el);
@@ -428,15 +401,6 @@ const UI = (() => {
                 toast('Clip eliminado', 'success');
             });
         });
-
-        // Export buttons
-        container.querySelectorAll('.clip-export-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const clip = AppState.get('clips').find(c => c.id === btn.dataset.clipId);
-                if (clip) ExportTool.exportClip(clip);
-            });
-        });
     }
 
     // ═══ CLIP LIST (View) ═══
@@ -449,16 +413,6 @@ const UI = (() => {
         const activePlaylistId = AppState.get('activePlaylistId');
 
         container.innerHTML = '';
-        if (clips.length > 0 && VideoPlayer.getType() === 'local' && activePlaylistId) {
-            const batchBtn = document.createElement('button');
-            batchBtn.className = 'btn btn-xs btn-outline';
-            batchBtn.style.margin = '8px var(--sp-md)';
-            batchBtn.style.width = 'calc(100% - 2 * var(--sp-md))';
-            batchBtn.innerHTML = '⬇️ Exportar Toda la Playlist (MP4)';
-            batchBtn.addEventListener('click', () => ExportTool.exportPlaylist(activePlaylistId));
-            container.appendChild(batchBtn);
-        }
-
         $('#view-clip-count').textContent = clips.length;
 
         if (clips.length === 0) {
@@ -471,58 +425,54 @@ const UI = (() => {
             const tag = AppState.getTagType(clip.tag_type_id);
             const clipNum = AppState.getClipNumber(clip);
             const flags = AppState.getClipUserFlags(clip.id);
-            const commentsDict = AppState.get('playlistComments') || {};
-            const hasChat = Object.keys(commentsDict).some(k => k.endsWith('_' + clip.id) && commentsDict[k].length > 0);
-
             const el = document.createElement('div');
-            el.className = 'view-clip-item' + (clip.id === currentClipId ? ' active' : '');
-            if (hasChat) el.classList.add('has-chat');
-            if (tag) el.classList.add(`tag-${tag.key}`);
+            el.className = 'clip-item' + (clip.id === currentClipId ? ' active' : '');
             el.dataset.clipId = clip.id;
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const isReadOnly = urlParams.get('mode') === 'view';
+
+            const isRival = tag && tag.row === 'bottom';
+            const badgeClass = isRival ? 'clip-tag-badge rival' : 'clip-tag-badge';
+            const flagBtnHtml = buildFlagButton(clip.id, flags);
+            const chatBtnHtml = buildChatButton(activePlaylistId, clip.id);
+            const drawBtnHtml = buildDrawButton(activePlaylistId, clip.id);
             const tagLabel = tag ? `${tag.label} ${clipNum}` : '?';
             const checked = _selectedClipIds.has(clip.id) ? 'checked' : '';
 
-            const flagIcon = flags.length > 0 ? `<span class="clip-list-icon" title="${flags.map(f => FLAG_LABELS[f]).join(', ')}">🚩</span>` : '';
-            const chatIcon = hasChat ? `<span class="clip-list-icon chat-active" title="Tiene chat">💬</span>` : '';
-            const playlistIcon = `<span class="clip-list-icon playlist-add-trigger" data-clip-id="${clip.id}" title="Agregar a playlist">📋</span>`;
+            let playlistBtnHtml = '';
+            if (!isReadOnly) {
+                playlistBtnHtml = `<button class="clip-action-icon clip-add-playlist" data-clip-id="${clip.id}" title="Agregar a playlist">📋</button>`;
+            }
 
             el.innerHTML = `
-                <div class="clip-check-cell">
-                    <input type="checkbox" class="clip-item-check" data-clip-id="${clip.id}" ${checked} />
-                </div>
-                <div class="clip-info-cell">
-                    <span class="clip-item-name">${tagLabel}</span>
-                    <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
-                </div>
-                <div class="clip-icons-cell">
-                    ${flagIcon}
-                    ${chatIcon}
-                    ${playlistIcon}
-                </div>
-            `;
+        <input type="checkbox" class="clip-checkbox" data-clip-id="${clip.id}" ${checked} />
+        <span class="${badgeClass}">${tagLabel}</span>
+        <span class="clip-time">${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}</span>
+        <span class="clip-item-spacer"></span>
+        ${flagBtnHtml}
+        ${chatBtnHtml}
+        ${drawBtnHtml}
+        ${playlistBtnHtml}
+      `;
 
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.clip-check-cell')) return;
-
-                // Allow clicking icons for their actions
-                if (e.target.classList.contains('playlist-add-trigger')) {
-                    AppState.togglePlaylistWindow(clip.id);
-                    return;
-                }
-
+                if (e.target.closest('.clip-flag-btn')) return;
+                if (e.target.closest('.flag-popover')) return;
+                if (e.target.classList.contains('clip-checkbox')) return;
+                if (e.target.closest('.clip-chat-panel')) return;
+                if (e.target.closest('.clip-chat-btn')) return;
+                if (e.target.closest('.clip-action-icon')) return;
                 AppState.setCurrentClip(clip.id);
-                VideoPlayer.playClip(clip.start_sec, clip.end_sec);
-                updateViewActionBar();
+                YTPlayer.playClip(clip.start_sec, clip.end_sec);
             });
 
             container.appendChild(el);
         });
 
         // Checkbox handlers
-        container.querySelectorAll('.clip-item-check').forEach(cb => {
-            cb.addEventListener('change', (e) => {
-                e.stopPropagation();
+        container.querySelectorAll('.clip-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
                 const cid = cb.dataset.clipId;
                 if (cb.checked) _selectedClipIds.add(cid);
                 else _selectedClipIds.delete(cid);
@@ -530,114 +480,22 @@ const UI = (() => {
             });
         });
 
-        updateSelectionBar();
-        updateViewActionBar();
-    }
+        // Flag dropdown
+        attachFlagDropdownHandlers(container, () => renderViewClips());
 
-    function updateViewActionBar() {
-        const actionBar = $('#view-action-bar');
-        if (!actionBar) return;
-
-        const mode = AppState.get('mode');
-        const clipId = AppState.get('currentClipId');
-
-        if (mode !== 'view' || !clipId) {
-            actionBar.classList.add('hidden');
-            return;
-        }
-
-        const clips = AppState.getFilteredClips();
-        const clip = clips.find(c => c.id === clipId);
-        if (!clip) {
-            actionBar.classList.add('hidden');
-            return;
-        }
-
-        const tag = AppState.getTagType(clip.tag_type_id);
-        const clipNum = AppState.getClipNumber(clip);
-        const flags = AppState.getClipUserFlags(clipId);
-
-        $('#view-active-clip-name').textContent = tag ? `${tag.label} ${clipNum}` : 'Sin nombre';
-        $('#view-active-clip-time').textContent = `${formatTime(clip.start_sec)} → ${formatTime(clip.end_sec)}`;
-
-        const flagsContainer = $('#view-active-clip-flags');
-        if (flagsContainer) {
-            flagsContainer.innerHTML = '';
-            UI_FLAGS.forEach(f => {
-                const btn = document.createElement('button');
-                btn.className = 'view-flag-btn' + (flags.includes(f) ? ' active' : '');
-                btn.textContent = FLAG_EMOJI[f];
-                btn.title = FLAG_LABELS[f];
-                btn.onclick = (e) => {
-                    e.stopPropagation();
-                    AppState.toggleFlag(clipId, f);
-                };
-                flagsContainer.appendChild(btn);
+        // Playlist add buttons
+        container.querySelectorAll('.clip-add-playlist').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showAddToPlaylistModal(btn.dataset.clipId);
             });
-        }
+        });
 
-        actionBar.classList.remove('hidden');
-        renderClipContextSlider(clipId);
+        // Chat handlers
+        attachChatHandlers(container, () => renderViewClips());
+
+        updateSelectionBar();
     }
-
-    function renderClipContextSlider(clipId) {
-        const clip = AppState.get('clips').find(c => c.id === clipId);
-        if (!clip) return;
-
-        const margin = 4; // 4 seconds margin
-        const totalDuration = VideoPlayer.getDuration() || 3600;
-
-        const contextStart = Math.max(0, clip.start_sec - margin);
-        const contextEnd = Math.min(totalDuration, clip.end_sec + margin);
-        const contextRange = contextEnd - contextStart;
-
-        $('#context-start-time').textContent = formatTime(contextStart);
-        $('#context-end-time').textContent = formatTime(contextEnd);
-
-        // Position the highlight (clip range)
-        const leftPerc = ((clip.start_sec - contextStart) / contextRange) * 100;
-        const widthPerc = ((clip.end_sec - clip.start_sec) / contextRange) * 100;
-
-        const highlight = $('#clip-range-highlight');
-        highlight.style.left = `${leftPerc}%`;
-        highlight.style.width = `${widthPerc}%`;
-    }
-
-    function updateClipPlayhead() {
-        try {
-            const clipId = AppState.get('currentClipId');
-            if (!clipId) return;
-            const actionBar = $('#view-action-bar');
-            if (!actionBar || actionBar.classList.contains('hidden')) return;
-
-            const clip = AppState.get('clips').find(c => c.id === clipId);
-            if (!clip) return;
-
-            const currentTime = VideoPlayer.getCurrentTime();
-            const duration = VideoPlayer.getDuration() || 3600;
-            const margin = 4;
-            const contextStart = Math.max(0, clip.start_sec - margin);
-            const contextEnd = Math.min(duration, clip.end_sec + margin);
-            const contextRange = Math.max(0.1, contextEnd - contextStart);
-
-            const playhead = $('#clip-playhead');
-            const timeEl = $('#clip-playhead-time');
-
-            if (currentTime >= (contextStart - 0.5) && currentTime <= (contextEnd + 0.5)) {
-                const perc = ((currentTime - contextStart) / contextRange) * 100;
-                if (playhead) {
-                    playhead.style.left = `${Math.max(0, Math.min(100, perc))}%`;
-                    playhead.style.display = 'block';
-                }
-                if (timeEl) timeEl.textContent = formatTime(currentTime);
-            } else {
-                if (playhead) playhead.style.display = 'none';
-            }
-        } catch (e) {
-            // Silently fail playhead update (often cross-origin errors)
-        }
-    }
-
 
     function updateSelectionBar() {
         const bar = $('#view-selection-bar');
@@ -724,8 +582,7 @@ const UI = (() => {
             const btn = document.createElement('button');
             const isRival = tag.row === 'bottom';
             const isActive = activeTagIds.includes(tag.id);
-            btn.className = 'source-btn' + (isActive ? ' active' : '') +
-                (isRival ? ' source-btn-rival' : '') + ` tag-${tag.key}`;
+            btn.className = 'source-btn' + (isActive ? ' active' : '') + (isRival ? ' source-btn-rival' : '');
             btn.dataset.source = tag.id;
             btn.textContent = tag.label;
             btn.addEventListener('click', () => {
@@ -969,7 +826,7 @@ const UI = (() => {
                 AppState.setPlaylistFilter(plId);
                 AppState.setMode('view');
                 AppState.setCurrentClip(clipId);
-                VideoPlayer.playClip(startSec, endSec);
+                YTPlayer.playClip(startSec, endSec);
                 dropdown.style.display = 'none';
             });
         });
@@ -1076,22 +933,13 @@ const UI = (() => {
         btnView.classList.toggle('active', mode === 'view');
 
         if (mode === 'analyze') {
-            if (panelAnalyze) panelAnalyze.classList.remove('hidden');
-            if (panelView) panelView.classList.add('hidden');
-            if (tagBar) tagBar.classList.remove('hidden');
-            // Hide View action bar explicitly
-            const viewBar = document.getElementById('view-action-bar');
-            if (viewBar) viewBar.classList.add('hidden');
+            panelAnalyze.classList.remove('hidden');
+            panelView.classList.add('hidden');
+            tagBar.classList.remove('hidden');
         } else { // mode === 'view'
-            if (panelAnalyze) panelAnalyze.classList.add('hidden');
-            if (panelView) panelView.classList.remove('hidden');
-            if (tagBar) tagBar.classList.add('hidden');
-            // Show only if there's a clip
-            const viewBar = document.getElementById('view-action-bar');
-            if (viewBar) {
-                const hasClip = !!AppState.get('currentClipId');
-                viewBar.classList.toggle('hidden', !hasClip);
-            }
+            panelAnalyze.classList.add('hidden');
+            panelView.classList.remove('hidden');
+            tagBar.classList.add('hidden');
         }
         updateClipEditControls();
 
@@ -1281,119 +1129,12 @@ const UI = (() => {
         closeTagInlineEditor();
     }
 
-    // ═══ CONTEXTUAL SLIDER DRAG LOGIC ═══
-    function initContextSliderDrag() {
-        const slider = document.getElementById('clip-context-slider');
-        if (!slider) return;
-
-        let dragging = null; // 'start' | 'end' | 'seek'
-        let initialStartSec, initialEndSec, contextStart, contextEnd, contextRange;
-
-        const onDown = (e) => {
-            const clipId = AppState.get('currentClipId');
-            const clip = AppState.get('clips').find(c => c.id === clipId);
-            if (!clip) return;
-
-            const rect = slider.getBoundingClientRect();
-            const margin = 4;
-            const video = document.getElementById('local-video') || { duration: 3600 };
-            const totalDur = video.duration || 3600;
-
-            contextStart = Math.max(0, clip.start_sec - margin);
-            contextEnd = Math.min(totalDur, clip.end_sec + margin);
-            contextRange = contextEnd - contextStart;
-            initialStartSec = clip.start_sec;
-            initialEndSec = clip.end_sec;
-
-            const handle = e.target.closest('.resize-handle');
-            if (handle) {
-                dragging = handle.dataset.handle; // 'start' or 'end'
-                e.preventDefault(); e.stopPropagation();
-            } else {
-                dragging = 'seek';
-                updateSeek(e);
-            }
-        };
-
-        const updateSeek = (e) => {
-            const rect = slider.getBoundingClientRect();
-            const x = (e.clientX || (e.touches ? e.touches[0].clientX : 0)) - rect.left;
-            const perc = Math.max(0, Math.min(1, x / rect.width));
-            const targetTime = contextStart + (perc * contextRange);
-            VideoPlayer.seekTo(targetTime);
-        };
-
-        const onMove = (e) => {
-            if (!dragging) return;
-            if (dragging === 'seek') {
-                updateSeek(e);
-                return;
-            }
-
-            const rect = slider.getBoundingClientRect();
-            const x = (e.clientX || (e.touches ? e.touches[0].clientX : 0)) - rect.left;
-            const perc = Math.max(0, Math.min(1, x / rect.width));
-            const time = contextStart + (perc * contextRange);
-
-            let newStart = initialStartSec;
-            let newEnd = initialEndSec;
-
-            if (dragging === 'start') {
-                newStart = Math.min(initialEndSec - 0.5, time);
-            } else if (dragging === 'end') {
-                newEnd = Math.max(initialStartSec + 0.5, time);
-            }
-
-            // Visual feedback
-            const leftPerc = ((newStart - contextStart) / contextRange) * 100;
-            const widthPerc = ((newEnd - newStart) / contextRange) * 100;
-            const highlight = $('#clip-range-highlight');
-            if (highlight) {
-                highlight.style.left = `${leftPerc}%`;
-                highlight.style.width = `${widthPerc}%`;
-            }
-
-            // Preview video
-            VideoPlayer.seekTo(dragging === 'start' ? newStart : newEnd);
-        };
-
-        const onUp = () => {
-            if (!dragging) return;
-            if (dragging === 'start' || dragging === 'end') {
-                const highlight = $('#clip-range-highlight');
-                const rect = slider.getBoundingClientRect();
-                const hRect = highlight.getBoundingClientRect();
-
-                const startPerc = (hRect.left - rect.left) / rect.width;
-                const endPerc = (hRect.right - rect.left) / rect.width;
-
-                const finalStart = contextStart + (startPerc * contextRange);
-                const finalEnd = contextStart + (endPerc * contextRange);
-
-                const clipId = AppState.get('currentClipId');
-                AppState.updateClip(clipId, { start_sec: finalStart, end_sec: finalEnd });
-                toast('Clip duration updated', 'success');
-            }
-            dragging = null;
-        };
-
-        slider.addEventListener('mousedown', onDown);
-        slider.addEventListener('touchstart', onDown, { passive: false });
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('touchmove', onMove, { passive: false });
-        window.addEventListener('mouseup', onUp);
-        window.addEventListener('touchend', onUp);
-    }
-
-    // Call it right away
-    setTimeout(initContextSliderDrag, 100);
-
     return {
         $, $$, toast, formatTime,
         FLAG_EMOJI, FLAG_LABELS,
         updateProjectTitle, renderTagButtons,
         renderAnalyzeClips, renderViewClips,
-        updateClipEditControls, updateClipPlayhead,
+        updateClipEditControls,
         renderAnalyzePlaylists,
         renderViewSources, updateFlagFilterBar, updateFlagButtons,
         updateFocusView, updatePanelState, updateMode,
@@ -1401,7 +1142,6 @@ const UI = (() => {
         showAddToPlaylistModal, renderPlaylistModalList, showModal, hideModal,
         toggleTagEditor, saveTagFromEditor, deleteTagFromEditor, closeTagInlineEditor,
         getSelectedClipIds, clearClipSelection, renderNotifications,
-        toggleChatPanel, updateViewActionBar, // <-- Added these two explicitly
         refreshAll
     };
 })();

@@ -68,56 +68,44 @@ const AppState = (() => {
   }
 
   function getFilteredClips() {
-    let filtered = [...state.clips].filter(c => c.game_id === state.currentGameId);
+    let clips = [...state.clips];
 
-    // Filter by Playlist if one is active
+    // Filter by playlist (exclusive)
     if (state.activePlaylistId) {
-      const playlistClipIds = DemoData.getPlaylistItems(state.activePlaylistId);
-      filtered = filtered.filter(clip => playlistClipIds.includes(clip.id));
+      const itemClipIds = state.playlistItems[state.activePlaylistId] || [];
+      clips = clips.filter(c => itemClipIds.includes(c.id));
     }
 
-    // Filter by Tags
+    // Filter by tags (any of selected, additive)
     if (state.activeTagFilters.length > 0) {
-      filtered = filtered.filter(clip => state.activeTagFilters.includes(clip.tag_type_id));
+      clips = clips.filter(c => state.activeTagFilters.includes(c.tag_type_id));
     }
 
-    // Filter by Flags and/or Chat
+    // Filter by flags and/or chat (cross-filter)
     if (state.filterFlags.length > 0) {
       const realFlags = state.filterFlags.filter(f => f !== 'has_chat');
       const wantChat = state.filterFlags.includes('has_chat');
-
-      filtered = filtered.filter(clip => {
+      clips = clips.filter(c => {
         let match = false;
-
-        // Match flags
         if (realFlags.length > 0) {
-          const flags = getClipUserFlags(clip.id);
-          if (realFlags.some(f => flags.includes(f))) match = true;
-        } else if (!wantChat) {
-          // if only flags filter active but no flags selected (strange case)
-          match = true;
+          const flags = (state.clipFlags[c.id] || [])
+            .filter(f => f.userId === state.userId)
+            .map(f => f.flag);
+          match = realFlags.some(ff => flags.includes(ff));
         }
-
-        // Match chat
         if (wantChat) {
-          const commentsDict = state.playlistComments || {};
-          const hasChat = Object.keys(commentsDict).some(k => k.endsWith('_' + clip.id) && commentsDict[k].length > 0);
-          if (realFlags.length > 0) {
-            // If both, both must match or is it OR? 
-            // Usually it's OR in this app for flags.
-            match = match || hasChat;
-          } else {
-            match = hasChat;
-          }
+          // Check if clip has comments in any playlist
+          match = match || Object.keys(state.playlistComments).some(key => {
+            return key.endsWith('::' + c.id) && state.playlistComments[key].length > 0;
+          });
         }
-
         return match;
       });
     }
 
     // Sort by t_sec
-    filtered.sort((a, b) => a.t_sec - b.t_sec);
-    return filtered;
+    clips.sort((a, b) => a.t_sec - b.t_sec);
+    return clips;
   }
 
   function getClipUserFlags(clipId) {
@@ -169,42 +157,11 @@ const AppState = (() => {
     emit('clipChanged', getCurrentClip());
   }
 
-  function addGame(title, youtubeVideoId, videoType = 'youtube') {
-    const game = DemoData.createGame(title, youtubeVideoId, videoType);
+  function addGame(title, youtubeVideoId) {
+    const game = DemoData.createGame(title, youtubeVideoId);
     state.games = DemoData.getGames();
     emit('gamesUpdated', state.games);
     return game;
-  }
-
-  function renameGame(gameId, newTitle) {
-    const success = DemoData.renameGame(gameId, newTitle);
-    if (success) {
-      state.games = DemoData.getGames();
-      emit('gamesUpdated', state.games);
-      const g = getCurrentGame();
-      if (g && g.id === gameId) emit('gameChanged', g);
-    }
-    return success;
-  }
-
-  function duplicateGame(gameId) {
-    const newGame = DemoData.duplicateGame(gameId);
-    if (newGame) {
-      state.games = DemoData.getGames();
-      emit('gamesUpdated', state.games);
-    }
-    return newGame;
-  }
-
-  function updateGameVideo(gameId, source, type) {
-    const success = DemoData.updateGameVideo(gameId, source, type);
-    if (success) {
-      state.games = DemoData.getGames();
-      emit('gamesUpdated', state.games);
-      const g = getCurrentGame();
-      if (g && g.id === gameId) emit('gameChanged', g);
-    }
-    return success;
   }
 
   function addClip(tagTypeId, tSec) {
@@ -219,15 +176,6 @@ const AppState = (() => {
     state.clipFlags[clip.id] = [];
     emit('clipsUpdated', state.clips);
     return clip;
-  }
-
-  function updateClip(clipId, data) {
-    const clip = state.clips.find(c => c.id === clipId);
-    if (!clip) return;
-    Object.assign(clip, data);
-    DemoData.updateClip(clipId, data);
-    emit('clipsUpdated', state.clips);
-    emit('clipChanged', clip);
   }
 
   function updateClipBounds(clipId, field, delta) {
@@ -508,7 +456,6 @@ const AppState = (() => {
     const data = {
       title: game ? game.title : 'Sin título',
       youtubeVideoId: game ? game.youtube_video_id : '',
-      videoType: game ? (game.videoType || 'youtube') : 'youtube',
       tagTypes: state.tagTypes,
       games: state.games,
       clips: state.clips,
@@ -725,8 +672,7 @@ const AppState = (() => {
     getCurrentGame, getCurrentClip, getTagType,
     getFilteredClips, getClipUserFlags,
     setMode, setCurrentGame, setCurrentClip,
-    addGame, renameGame, duplicateGame, updateGameVideo,
-    addClip, updateClip, updateClipBounds, deleteClip,
+    addGame, addClip, updateClipBounds, deleteClip,
     addPlaylist, addClipToPlaylist,
     toggleFlag,
     toggleTagFilter, removeTagFilter, clearTagFilters, clearAllFilters,
